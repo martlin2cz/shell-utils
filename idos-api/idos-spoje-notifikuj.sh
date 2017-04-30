@@ -6,10 +6,10 @@
 
 
 ## soubor ikony notifikace
-ICON=/home/martin/Programovani/shell/IDOS_API/dpmo-ikonka.png
+ICON=/home/martin/Programovani/shell/shell-utils/idos-api/dpmo-ikonka.png
 
 ##příkaz pro načtení seznamu spojů (cesta k get-idos-spoje.sh nebo jen get-idos-spoje.sh, pokud je na PATH)
-GISCMD=/home/martin/Programovani/shell/IDOS_API/get-idos-spoje.sh
+GISCMD=/home/martin/Programovani/shell/shell-utils/idos-api/get-idos-spoje.sh
 ###############################################################################
 ##Ověříme vstup
 if [ "$(($# % 4))" != "0" ]; then

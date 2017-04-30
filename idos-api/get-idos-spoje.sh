@@ -76,6 +76,7 @@ done
 #
 
 #echo $spoje
+rm spoje.html
 exit 1
 
 

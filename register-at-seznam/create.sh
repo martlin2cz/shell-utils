@@ -41,7 +41,7 @@ LOG=../register/2register.txt
 echo "Stahuji data ..."
 
 #download form
-wget -q --save-cookies cookies.txt -O registerform.html https://registrace.seznam.cz/register.py/stageZeroScreen 
+wget -q --save-cookies cookies.txt -O registerform.html https://registrace.seznam.cz 
 
 #parse hidden fields from form
 hiddens=$(cat registerform.html | grep '<input type="hidden"' | sed -r 's:(\s+<input type="hidden" name=")([^"]+)(" value=")([^"]*)(" />):\2=\4\&:' | tr -d '\n')
@@ -60,3 +60,6 @@ if [ "$(cat result.html | grep 'Gratulujeme')" != "" ]; then
 else
 	echo "Něco je špatně, nepodařilo se vytvořit účet"
 fi
+
+rm registerform.html cookies.txt result.html
+
