@@ -1,0 +1,19 @@
+{
+  "name": "libgen-cli",
+  "version": "1.0.0",
+  "description": "UNOFICIAL client for library genesis (libgen.io).",
+  "main": "download-pdf.js",
+  "scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "client",
+    "html"
+  ],
+	"dependencies": {
+   "cheerio": "0.22.0",
+	 "request": "2.81.0"
+	},
+  "author": "m@rtlin",
+  "license": "ISC"
+}
