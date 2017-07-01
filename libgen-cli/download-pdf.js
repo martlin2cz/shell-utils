@@ -51,6 +51,7 @@ var downloadFile = function(url, postData, outputFile) {
 //		request.post(url).form(postData).pipe(file);
 		request.post({url: url, form: postData}, function(err, resp, body) {
 			console.log(resp + ":"+  body);
+			//TODO POST seems not implemented ...
 		});
 	} else {
 		request(url).pipe(file);
@@ -104,8 +105,37 @@ var printAllItems = function (items) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// captcha processing
+// download site processing
 
+var findLinkOnSite = function(html, downloadLinkSelectorOrIndex) {
+	var $ = cheerio.load(html);
+
+	var $link;
+	if (isNaN(downloadLinkSelectorOrIndex)) {
+		$link = $(downloadLinkSelectorOrIndex);
+	} else {
+		$link	= $("a").eq(downloadLinkSelectorOrIndex);
+	}
+
+	return $link;
+}
+
+var findUrlOfLink = function($link) {
+	return $link.attr("href");
+}
+
+var findFileDownloadUrl = function(html, downloadLinkSelectorOrIndex, baseUrl) {
+	var $link = findLinkOnSite(html, downloadLinkSelectorOrIndex);
+	if (!$link) {
+		console.error("Error #3: " + "no download link on site");
+		return null;
+	}
+
+	var url = findUrlOfLink($link, baseUrl);
+	return url;
+}
+
+/* XXX
 var findCaptchaProcessor = function(item) {
 	return processorLibgen;
 }
@@ -116,6 +146,7 @@ var processorLibgen = function(url, html, handler) {
 
 	withDownloadLink(html, handler, baseUrl, downloadLinkIndex);
 }
+
 
 var withDownloadLink = function(html, outputFile, baseUrl, downloadLinkSelectorOrIndex) {
 	var $ = cheerio.load(html);
@@ -132,7 +163,7 @@ var withDownloadLink = function(html, outputFile, baseUrl, downloadLinkSelectorO
 
 	downloadFile(url, null, outputFile);
 }
-
+*/
 ///////////////////////////////////////////////////////////////////////////////
 // parsing
 
@@ -189,14 +220,16 @@ var processHTML = function(html) {
 var processItem = function(item, outputFile) {
 	console.log("Downloading '" + item.title + "' by '" + item.author + "' \t from " + item.url);
 	
-	var captchaHandler =  function(error, response, body) {
+	var downloadHandler =  function(error, response, body) {
 		if (error) {
 			console.error("Error #2: " + error);
 			return;
 		} else {
-//		console.log(body);			//XXX testing
-			var process = findCaptchaProcessor(item);
-			process(item.url, body, outputFile);
+			var url = findFileDownloadUrl(body, 1);
+			if (url) {	
+			downloadFile(url, null, outputFile);
+		//	process(item.url, body, outputFile);
+			}
 		}
 	}
 	/*
@@ -204,7 +237,7 @@ var processItem = function(item, outputFile) {
 	request(item.url).pipe(stream);
 	*/
 
-	request.get(item.url, captchaHandler);
+	request.get(item.url, downloadHandler);
 }
 
 var doTheQuery = function(query, outputFile, itemIndex) {
