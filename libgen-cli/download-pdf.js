@@ -99,8 +99,8 @@ var getIthItem = function(items, itemIndex) {
 var printAllItems = function (items) {
 	for (var i = 0; i < items.length; i++) {
 		var item = items[i];
-		console.log("[" + i + "] " + item.title + " (" + item.author + ")");
-		//TODO url?
+		console.log("[" + i + "] " + item.title + 
+				"\n by " + item.author + " (" + item.pages + " pages, " + item.size + ")");
 	}
 }
 
@@ -135,37 +135,8 @@ var findFileDownloadUrl = function(html, downloadLinkSelectorOrIndex, baseUrl) {
 	return url;
 }
 
-/* XXX
-var findCaptchaProcessor = function(item) {
-	return processorLibgen;
-}
-
-var processorLibgen = function(url, html, handler) {
-	var baseUrl = "";
-	var downloadLinkIndex = 1;
-
-	withDownloadLink(html, handler, baseUrl, downloadLinkIndex);
-}
-
-
-var withDownloadLink = function(html, outputFile, baseUrl, downloadLinkSelectorOrIndex) {
-	var $ = cheerio.load(html);
-
-	var $download;
-	if (isNaN(downloadLinkSelectorOrIndex)) {
-		$download = $(downloadLinkSelectorOrIndex);
-	} else {
-		$download	= $("a").eq(downloadLinkSelectorOrIndex);
-	}
-
-	var href = $download.attr("href");
-	var url = baseUrl + href;
-
-	downloadFile(url, null, outputFile);
-}
-*/
 ///////////////////////////////////////////////////////////////////////////////
-// parsing
+// parsing of results 
 
 
 var processHTML = function(html) {
@@ -177,17 +148,39 @@ var processHTML = function(html) {
 	var items = [];
 	$rows.each(function(e, index) {
 		var $row = $(this);
+		
+		item = processEachRow($, $row, index);
+
+		items.push(item);
+	});
+
+	return items;
+}
+
+var processEachRow = function($, $row, index) {
 		var $tds = $row.children("td");
 		
 		var $sources = $tds.eq(0);
 		var $author = $tds.eq(1);
 		var $title = $tds.eq(2);
-		
+		var $infos = $tds.eq(5);
+		var $size = $tds.eq(7);
+	
 //		console.log($author.text() + ":: " + $title.text());
 		var author = $author.text();
 		var title = $title.text();
 
+		var libgen = processSourcesOfRow($, $sources, index);
+		var pages = processInfosOfRow($, $infos, index);
+		var size = $size.text();
+
+		var item = { "author": author, "title": title, "url": libgen, "pages": pages, "size": size};
+		return item;
+}
+
+var processSourcesOfRow = function($, $sources, index) {
 		var $links = $sources.find("a");	
+
 		var libgen = null;
 		$links.each(function(e) {
 			if (source != null) {
@@ -206,17 +199,32 @@ var processHTML = function(html) {
 		
 		if (libgen == null) {
 			console.warn("Item on index " + index + " has no " + "Libgen" + " source");
-		} else {
-			var item = { "author": author, "title": title, "url": libgen };
-			items.push(item);
 		}
-	});
-
-	return items;
+		
+		return libgen;
 }
 
+var processInfosOfRow = function($, $infos, index) {
+	var infosStr = $infos.html();
+	var parts = infosStr.split("<br>");
+
+	var firstPagePart = parts[5];
+	var lastPagePart = parts[6];
+
+	var firstPage = firstPagePart.split(":")[1];
+	var lastPage = lastPagePart.split(":")[1];
+	
+	// console.log(firstPage + "~" + lastPage);
+	if (isNaN(firstPage) || isNaN(lastPage)) {
+		console.warn("Item with index " + index + " has unspecified pages range");
+		return 0;
+	} else {
+		return lastPage - firstPage;
+	}
+}
 ///////////////////////////////////////////////////////////////////////////////
 // download handlers
+
 var processItem = function(item, outputFile) {
 	console.log("Downloading '" + item.title + "' by '" + item.author + "' \t from " + item.url);
 	
@@ -227,15 +235,10 @@ var processItem = function(item, outputFile) {
 		} else {
 			var url = findFileDownloadUrl(body, 1);
 			if (url) {	
-			downloadFile(url, null, outputFile);
-		//	process(item.url, body, outputFile);
+				downloadFile(url, null, outputFile);
 			}
 		}
 	}
-	/*
-			var stream = fs.createWriteStream('bio');	//XXX testing
-	request(item.url).pipe(stream);
-	*/
 
 	request.get(item.url, downloadHandler);
 }
