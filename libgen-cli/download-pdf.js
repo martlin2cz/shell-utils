@@ -1,6 +1,10 @@
 /**
 	* UNOFFICIAL Client for library genesis (libgen.io)
 	* m@tlin, 30.4.2017
+	* v2 at 02.7.2017
+	* usage: 
+	* 	nodejs download-pdf.js [querry] // to list avaible results
+	* 	nodejs download-pdf.js [querry] [outfile] [index] //to direct download
 	*/
 
 var request = require('request');
@@ -19,7 +23,6 @@ if (process.argv.length < 2) {
 var query = process.argv[2];
 var outputFile = (process.argv.length > 2) ? process.argv[3] : null;
 var itemIndex = (process.argv.length > 2) ? process.argv[4] : 0;
-var sourceIndex = (process.argv.length > 2) ? process.argv[5] : 0;
 
 ///////////////////////////////////////////////////////////
 // utilities
@@ -81,22 +84,14 @@ var normalizeItemUrl = function(url) {
 ///////////////////////////////////////////////////////////////////////////////
 // working with items
 
-var getIthItem = function(items, itemIndex, sourceIndex) {
+var getIthItem = function(items, itemIndex) {
 	if (itemIndex >= items.length) {
 		console.error(itemIndex + "th item does not exist, there is only " + items.length + " items avaible");
 		return null;
 	}
 
 	var item = items[itemIndex];
-	
-	if (sourceIndex >= item.sources.length) {
-		console.error(itemIndex + "th source does not exist, there is only " + item.source.length + " sources avaible");
-		return null;
-	}
-
-	var source = item.sources[sourceIndex];
-
-	return { "title": item.title, "author": item.author, "source": source.source, "url": source.url };
+	return item;
 }
 
 
@@ -104,11 +99,7 @@ var printAllItems = function (items) {
 	for (var i = 0; i < items.length; i++) {
 		var item = items[i];
 		console.log("[" + i + "] " + item.title + " (" + item.author + ")");
-		
-		for (var j = 0; j < item.sources.length; j++) {
-			var source = item.sources[j];
-			console.log("\t[" + j + "] " + source.source + ": " + source.url);
-		}
+		//TODO url?
 	}
 }
 
@@ -116,23 +107,7 @@ var printAllItems = function (items) {
 // captcha processing
 
 var findCaptchaProcessor = function(item) {
-	switch (item.source) {
-		case "Libgen":
-			return processorLibgen;
-		case "Sci-Hub Moscow":
-			return processorSciHubMoscow;
-		case "Sci-Hub Ocean":
-			return processorSciHubOcean;
-		case "Sci-Hub Cyber":
-			return processorSciHubCyber;
-		case "BookSC":
-			return processorBookSC;
-		case "Torrents":
-
-		default:
-			console.error("Unsupported source " + item.source);
-			return null;	//identity
-	}
+	return processorLibgen;
 }
 
 var processorLibgen = function(url, html, handler) {
@@ -141,37 +116,6 @@ var processorLibgen = function(url, html, handler) {
 
 	withDownloadLink(html, handler, baseUrl, downloadLinkIndex);
 }
-
-var processorSciHubMoscow = function(url, html, outputFile) {
-	processorSciHub("moscow", url, html, outputFile);
-}
-
-var processorSciHubOcean = function(url, html, outputFile) {
-	processorSciHub("ocean", url, html, outputFile);
-}
-
-var processorSciHubCyber = function(url, html, outputFile) {
-	processorSciHub("cyber", url, html, outputFile);
-}
-
-var processorBookSC = function(url, html, outputFile) {
-	var baseUrl = "";
-	var downloadLinkSelector = "a.ddownload.color2.dnthandler";
-
-	withDownloadLink(html, outputFile, baseUrl, downloadLinkSelector);
-}
-
-
-
-var processorSciHub = function(subdomain, url, html, outputFile) {
-	var baseUrl = "http://" + subdomain + ".sci-hub.bz";
-	var postUrl = url;
-	var captchaImageSelector = "#captcha";
-	var captchaInputName = "captcha_code";
-
-	withCaptchaImageHandler(html, outputFile, baseUrl, postUrl, captchaImageSelector, captchaInputName);
-}
-
 
 var withDownloadLink = function(html, outputFile, baseUrl, downloadLinkSelectorOrIndex) {
 	var $ = cheerio.load(html);
@@ -189,26 +133,6 @@ var withDownloadLink = function(html, outputFile, baseUrl, downloadLinkSelectorO
 	downloadFile(url, null, outputFile);
 }
 
-
-var withCaptchaImageHandler = function(html, outputFile, baseUrl, postUrl, captchaImageSelector, captchaInputName) {
-	var $ = cheerio.load(html);
-	var $captcha = $(captchaImageSelector);
-	var src = $captcha.attr("src");
-	var url = baseUrl + src;
-
-	console.log("Downloading captcha image " + url);
-	var stream = fs.createWriteStream('/tmp/captcha');
-	request(url).pipe(stream);
-	//TODO open
-	
-	var readHandler = function(text) {
-			var postData = {};
-			postData[captchaInputName] = text;
-			downloadFile(postUrl, postData, outputFile);
-	}
-	readFromConsole("Enter captcha code", readHandler);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // parsing
 
@@ -220,7 +144,7 @@ var processHTML = function(html) {
 	var $cells = $rows.children("td:first-child");	
 
 	var items = [];
-	$rows.each(function(e) {
+	$rows.each(function(e, index) {
 		var $row = $(this);
 		var $tds = $row.children("td");
 		
@@ -233,20 +157,28 @@ var processHTML = function(html) {
 		var title = $title.text();
 
 		var $links = $sources.find("a");	
-		var sources = [];
+		var libgen = null;
 		$links.each(function(e) {
+			if (source != null) {
+				return;
+			}
+
 			var $link = $(this);
 			var source = $link.text();
-			var url = $link.attr("href");
+			if (source == "Libgen") {
+				var url = $link.attr("href");
 
-			var normalized = normalizeItemUrl(url);
-			var path = { "source": source, "url": normalized };
- 	 		sources.push(path);
+				var normalized = normalizeItemUrl(url);
+				libgen = normalized;	
+			}
 		});
-
-
-		var item = { "author": author, "title": title, "sources": sources };
-		items.push(item);
+		
+		if (libgen == null) {
+			console.warn("Item on index " + index + " has no " + "Libgen" + " source");
+		} else {
+			var item = { "author": author, "title": title, "url": libgen };
+			items.push(item);
+		}
 	});
 
 	return items;
@@ -255,7 +187,7 @@ var processHTML = function(html) {
 ///////////////////////////////////////////////////////////////////////////////
 // download handlers
 var processItem = function(item, outputFile) {
-	console.log("Downloading '" + item.title + "' by '" + item.author + "' from " + item.source + "\n " + item.url);
+	console.log("Downloading '" + item.title + "' by '" + item.author + "' \t from " + item.url);
 	
 	var captchaHandler =  function(error, response, body) {
 		if (error) {
@@ -275,7 +207,7 @@ var processItem = function(item, outputFile) {
 	request.get(item.url, captchaHandler);
 }
 
-var doTheQuery = function(query, outputFile, itemIndex, sourceIndex) {
+var doTheQuery = function(query, outputFile, itemIndex) {
 	var url = constructQueryUrl(query);
 	
 	var queryHandler =  function(error, response, body) {
@@ -286,7 +218,7 @@ var doTheQuery = function(query, outputFile, itemIndex, sourceIndex) {
 			var items = processHTML(body);
 			console.log("Found " + items.length + " items");
 			if (outputFile) {
-				var item = getIthItem(items, itemIndex, sourceIndex);
+				var item = getIthItem(items, itemIndex);
 				if (!item) {
 					return;
 				}
@@ -305,6 +237,6 @@ var doTheQuery = function(query, outputFile, itemIndex, sourceIndex) {
 // run the main function
 
 
-doTheQuery(query, outputFile, itemIndex, sourceIndex);
+doTheQuery(query, outputFile, itemIndex);
 
 
