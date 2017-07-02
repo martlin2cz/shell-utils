@@ -21,8 +21,8 @@ if (process.argv.length < 3) {
 }
 
 var query = process.argv[2];
-var outputFile = (process.argv.length > 4) ? process.argv[3] : null;
-var itemIndex = (process.argv.length > 5) ? process.argv[4] : 0;
+var outputFile = (process.argv.length > 3) ? process.argv[3] : null;
+var itemIndex = (process.argv.length > 4) ? process.argv[4] : 0;
 
 ///////////////////////////////////////////////////////////
 // utilities
@@ -253,6 +253,7 @@ var doTheQuery = function(query, outputFile, itemIndex) {
 		} else {
 			var items = processHTML(body);
 			console.log("Found " + items.length + " items");
+
 			if (outputFile) {
 				var item = getIthItem(items, itemIndex);
 				if (!item) {
