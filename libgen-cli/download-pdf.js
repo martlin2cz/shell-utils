@@ -16,13 +16,13 @@ var request = request.defaults({jar: true});
 
 ///////////////////////////////////////////////////////////
 // process the input
-if (process.argv.length < 2) {
-	throw new Exception("Missing params");
+if (process.argv.length < 3) {
+	throw ("Missing params, see comment in " + process.argv[1] + " to see usage");
 }
 
 var query = process.argv[2];
-var outputFile = (process.argv.length > 2) ? process.argv[3] : null;
-var itemIndex = (process.argv.length > 2) ? process.argv[4] : 0;
+var outputFile = (process.argv.length > 4) ? process.argv[3] : null;
+var itemIndex = (process.argv.length > 5) ? process.argv[4] : 0;
 
 ///////////////////////////////////////////////////////////
 // utilities
