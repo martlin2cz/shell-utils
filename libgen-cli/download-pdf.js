@@ -22,7 +22,7 @@ if (process.argv.length < 3) {
 
 var query = process.argv[2];
 var outputFile = (process.argv.length > 3) ? process.argv[3] : null;
-var itemIndex = (process.argv.length > 4) ? process.argv[4] : 0;
+var itemIndex = (process.argv.length > 4) ? process.argv[4] : null;
 
 ///////////////////////////////////////////////////////////
 // utilities
@@ -253,16 +253,24 @@ var doTheQuery = function(query, outputFile, itemIndex) {
 		} else {
 			var items = processHTML(body);
 			console.log("Found " + items.length + " items");
-
+			
 			if (outputFile) {
-				var item = getIthItem(items, itemIndex);
-				if (!item) {
+				if (itemIndex == null) {
+					if (items.length == 1) {
+						itemIndex = 0;
+					}
+				}
+				
+				if (itemIndex != null) {
+					var item = getIthItem(items, itemIndex);
+					if (item != null) {
+						processItem(item, outputFile);
+					}
 					return;
 				}
-				processItem(item, outputFile);
-			} else {
-				printAllItems(items);
 			}
+			
+			printAllItems(items);		
 		}
 	}
 
