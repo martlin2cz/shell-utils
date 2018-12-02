@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # Copies all contents from CD to specified location
 # m@rtlin, 26.11.2018
 
@@ -8,7 +8,7 @@
 FROM=/media/cdrom0
 
 # the target (the external, or internal drive, and its sub-folder) (without the leading /, please)
-TO=/media/$(whoami)/Janča/janča/audioknihy
+TO=/media/$(whoami)/Janča/janca/audioknihy
 
 # the readme file name
 READMENAME=cojeto.txt
