@@ -8,7 +8,7 @@ REM m@rtlin, 2.12.2018
 SET FROM=D:
 
 :: the target (the external, or internal drive, and its sub-folder) (without the leading \, please)
-SET TO=F:\janca\audioknihy
+SET TO=E:\janca\audioknihy
 
 :: the readme file name
 SET READMENAME=cojeto.txt
