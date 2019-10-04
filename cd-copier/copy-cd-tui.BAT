@@ -10,5 +10,12 @@ ECHO
 
 SET /p AUTHOR=Autor: 
 SET /p TITLE=Nazev: 
+SET /p DISKNO=CD cislo ... 
 
-CALL copy.BAT "%AUTHOR%" "%TITLE%"
+ECHO 
+ECHO Jsou uveden udaje OK? Je vlozeno CD (D:) a pripojen externi disk (E:)? 
+ECHO Pokud ne, toto okno zavrete, pokud ano, pokracujte
+ECHO 
+PAUSE
+
+CALL copy.BAT "%AUTHOR%" "%TITLE%" "%DISKNO"

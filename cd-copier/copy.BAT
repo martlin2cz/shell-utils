@@ -17,12 +17,12 @@ SET READMENAME=cojeto.txt
 
 :: check the input
 IF [%1]==[] (
-	ECHO "Použití: %0 '<AUTOR>' '<nazev>'"
+	ECHO "Použití: %0 '<AUTOR>' '<nazev>' '[<cislo disku>]'"
 	PAUSE
 	EXIT
 )
 IF [%2]==[] (
-	ECHO "Použití: %0 '<autor>' '<NAZEV>'"
+	ECHO "Použití: %0 '<autor>' '<NAZEV>' '[<cislo disku>]'"
 	PAUSE
 	EXIT
 )
@@ -33,10 +33,13 @@ SET AUTHOR=%~1
 :: title of the cotent
 SET TITLE=%~2
 
+:: optional disk number or letter
+SET DISKNO=%~3
+
 :: ######################################
 
 :: construct dirname for the target
-SET DIRNAME=%AUTHOR% - %TITLE%
+SET DIRNAME=%AUTHOR% - %TITLE%, CD %DISKNO%
 
 :: create target dir
 SET TARGET=%TO%\%DIRNAME%
