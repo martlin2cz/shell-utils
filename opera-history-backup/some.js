@@ -25,6 +25,13 @@ function findEntries(group) {
 	return group.querySelectorAll('a.visit-entry');
 }
 
+function findLoader() {
+	return document
+		.querySelector('body > main-view').shadowRoot
+		.querySelector('section > section > history-page')
+		.shadowRoot.querySelector('#loader')
+}
+
 function panelOfEntry(entry) {
 	return entry.parentElement.parentElement.parentElement
 }
@@ -81,20 +88,20 @@ function listAdded(mutations) {
 }
 
 /////////////////////////////////////////////////////////////////////
-
+HANDLE_TIMEOUT = 10 * 1000;
+SCROLL_TIMEOUT = 10 * 1000;
 
 function doit() {
 	const callback = function(mutations, observer) {
-		for (added of listAdded(mutations)) {
-			console.debug(added);
-			if (isPanel(added)) {
-				handlePanel(added, observer);
-			}
-			if (isGroup(added)) {
-				handleGroup(added);
-			}
-		}
-	};
+		window.setTimeout(function() {
+			handleMutations(mutations, observer);
+
+			window.setTimeout(function() {
+				scrollDown();
+			}, SCROLL_TIMEOUT);
+		}, HANDLE_TIMEOUT);
+
+		};
 
 	const observer = prepareTheObserver(callback);
 	const container = findPanelsContainer();
@@ -104,25 +111,11 @@ function doit() {
 	for (panel of panels) {
 		handlePanel(panel, observer);
 	}
+
+	scrollDown();	
+	console.info("Okay, running!");
 	
 }
-
-function handlePanel(panel, observer) {
-	const panelContainer = findPanelGroupsContainer(panel);
-	startObserving(panelContainer, observer);	
-	//TODO scroll down
-}
-
-function handleGroup(group) {
-	console.log("Handling group");
-	
-	for (entry of findEntries(group)) {
-		data = completeDataFromEntry(entry);
-		console.log(data);
-	}
-}
-
-
 
 function prepareTheObserver(callback) {
 	const observer = new MutationObserver(callback);
@@ -133,6 +126,39 @@ function startObserving(node, observer) {
 	const config = { childList: true }
 	observer.observe(node, config);
 }
+
+function scrollDown() {
+	//console.log("Scrolling down")
+	loader = findLoader();
+	loader.scrollIntoView();	
+}
+	
+
+function handleMutations(mutations, observer) {
+	for (added of listAdded(mutations)) {
+		//console.debug(added);
+		if (isPanel(added)) {
+			handlePanel(added, observer);
+		}
+		if (isGroup(added)) {
+			handleGroup(added);
+		}
+	}
+}
+
+function handlePanel(panel, observer) {
+	const panelContainer = findPanelGroupsContainer(panel);
+	startObserving(panelContainer, observer);	
+}
+
+function handleGroup(group) {
+	for (entry of findEntries(group)) {
+		data = completeDataFromEntry(entry);
+		console.log("Reporting entry");
+	}
+}
+
+doit();
 
 /*
 panelsContainer = findPanelsContainer();
