@@ -52,11 +52,13 @@ function dateFromPanel(panel) {
 }
 
 function dataFromEntry(entry) {
+	const url = entry.getAttribute("href");
 	const time = entry.querySelector('.visit-time').firstChild.nodeValue;
-	const url = entry.querySelector('.visit-url').firstChild.nodeValue;
+	const server = entry.querySelector('.visit-url').firstChild.nodeValue;
 	const title = entry.querySelector('.visit-title').firstChild.nodeValue;
+	const favicons = entry.querySelector('.visit-favicon').style.backgroundImage;
 
-	return { "time": time, "url": url, "title": title };
+	return { "url": url, "time": time, "server": server, "title": title, "favicons": favicons};
 }
 
 function completeDataFromEntry(entry) {
@@ -93,15 +95,8 @@ SCROLL_TIMEOUT = 10 * 1000;
 
 function doit() {
 	const callback = function(mutations, observer) {
-		window.setTimeout(function() {
-			handleMutations(mutations, observer);
-
-			window.setTimeout(function() {
-				scrollDown();
-			}, SCROLL_TIMEOUT);
-		}, HANDLE_TIMEOUT);
-
-		};
+		handleMutations(mutations, observer);		
+	};
 
 	const observer = prepareTheObserver(callback);
 	const container = findPanelsContainer();
@@ -112,7 +107,7 @@ function doit() {
 		handlePanel(panel, observer);
 	}
 
-	scrollDown();	
+	//scrollDown();	
 	console.info("Okay, running!");
 	
 }
@@ -132,10 +127,33 @@ function scrollDown() {
 	loader = findLoader();
 	loader.scrollIntoView();	
 }
-	
+/*	
+window.setTimeout(function() {
+			handleMutations(mutations, observer);
+
+			window.setTimeout(function() {
+				scrollDown();
+			}, SCROLL_TIMEOUT);
+		}, HANDLE_TIMEOUT);
+*/
+
+
 
 function handleMutations(mutations, observer) {
-	for (added of listAdded(mutations)) {
+	addeds = listAdded(mutations);
+	
+	window.setTimeout(function() {
+		handleAddeds(addeds, observer);
+	}, HANDLE_TIMEOUT);
+	
+	//window.setTimeout(function() {
+	//	scrollDown();
+	//}, SCROLL_TIMEOUT);
+}
+
+
+function handleAddeds(addeds, observer) {
+	for (added of addeds) {
 		//console.debug(added);
 		if (isPanel(added)) {
 			handlePanel(added, observer);
@@ -154,8 +172,20 @@ function handlePanel(panel, observer) {
 function handleGroup(group) {
 	for (entry of findEntries(group)) {
 		data = completeDataFromEntry(entry);
-		console.log("Reporting entry");
+		sendEntryData(data);
+		console.log("Reported entry");
 	}
+}
+
+
+function sendEntryData(data) {
+	//console.log("Reporting entry " + data);
+	req = new XMLHttpRequest()
+	req.open("POST", "http://localhost:8082/add")
+	req.setRequestHeader("Content-Type", "application/json");
+	
+	const json = JSON.stringify(data);
+	req.send(json);
 }
 
 doit();
