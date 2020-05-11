@@ -1,4 +1,5 @@
 #!/bin/bash
+# Each $WAIT second presses the PageDown key
 
 WAIT=5
 

@@ -1,11 +1,21 @@
+/**
+ * An nodejs service which listens on localhost:PORT/add
+ * for json data to be inserted into sqlite database DB_FILE.
+ * */
+
+///////////////////////////////////////////////////////////////////////////////
 
 const sqlite3 = require("sqlite3")
 const express = require('express');
 const ws = express();
-//const bodyParser = require('body-parser');
 
+///////////////////////////////////////////////////////////////////////////////
 
 const DB_FILE = "history.db";
+const PORT = 8082;
+
+///////////////////////////////////////////////////////////////////////////////
+
 
 function dbConnect() {
 	const db = new sqlite3.Database(DB_FILE);
@@ -27,7 +37,9 @@ function dbInsert(db, entry) {
 		+ " VALUES (?,?,?,?,?,?)";
 	const values =[entry.date_spec, entry.time, entry.server, entry.url, entry.title, entry.favicons];
 	db.run(sql, values);
+
 	//console.info("inserted " + JSON.stringify(entry));
+	process.stdout.write(".");
 }
 
 function dbDisconnect(db) {
@@ -35,7 +47,8 @@ function dbDisconnect(db) {
 	console.info("database disconected");
 }
 
-/////
+///////////////////////////////////////////////////////////////////////////////
+
 function wsStart(handler) {
 	ws.use(express.json());
 	ws.use(express.urlencoded({
@@ -66,16 +79,23 @@ function wsStart(handler) {
 		res.end("ok");
 	})
 
-	const server = ws.listen(8082, function () {
-		var host = server.address().address
-		var port = server.address().port
-		console.info("Service listening at http://%s:%s", host, port)
+	const server = ws.listen(PORT, function () {
+		console.info("Service running")
+	});
+
+	return server;
+}
+
+function wsStop(server) {
+	server.close(function () {
+		console.info("Service stopped");
 	});
 }
 
-//#TODO stop server
 
-////////
+///////////////////////////////////////////////////////////////////////////////
+
+console.info("Starting the collecter service");
 
 const db = dbConnect();
 dbCreateTable(db);
@@ -84,5 +104,14 @@ const handler = function(entry) {
 	dbInsert(db, entry);
 }
 
-wsStart(handler);
+const server = wsStart(handler);
+
+const interrupter = function() {
+	console.info("Terminating the collecter service");
+
+	dbDisconnect(db);
+	wsStop(server);
+}
+
+process.on('SIGINT', interrupter);
 
