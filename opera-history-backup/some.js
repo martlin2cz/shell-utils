@@ -90,8 +90,11 @@ function listAdded(mutations) {
 }
 
 /////////////////////////////////////////////////////////////////////
-HANDLE_TIMEOUT = 10 * 1000;
-SCROLL_TIMEOUT = 10 * 1000;
+const HANDLE_TIMEOUT = 10 * 1000;
+const SCROLL_TIMEOUT = 10 * 1000;
+
+var withObserving = false;
+var withScrolling = false;
 
 function doit() {
 	const callback = function(mutations, observer) {
@@ -106,37 +109,49 @@ function doit() {
 	for (panel of panels) {
 		handlePanel(panel, observer);
 	}
-
-	//scrollDown();	
+	
+	scrollDown();	
 	console.info("Okay, running!");
 	
 }
 
 function prepareTheObserver(callback) {
-	const observer = new MutationObserver(callback);
-	return observer;
+	if (withObserving) {
+		const observer = new MutationObserver(callback);
+		return observer;
+	} else {
+		return null;
+	}
 }
 
 function startObserving(node, observer) {
-	const config = { childList: true }
-	observer.observe(node, config);
+	if (withObserving) {
+		const config = { childList: true }
+		observer.observe(node, config);
+	}
 }
 
 function scrollDown() {
-	//console.log("Scrolling down")
-	loader = findLoader();
-	loader.scrollIntoView();	
+	if (withScrolling) {
+		//console.log("Scrolling down")
+		loader = findLoader();
+		loader.scrollIntoView();
+	}
 }
-/*	
-window.setTimeout(function() {
-			handleMutations(mutations, observer);
 
-			window.setTimeout(function() {
-				scrollDown();
-			}, SCROLL_TIMEOUT);
-		}, HANDLE_TIMEOUT);
-*/
-
+/////////////////////////////////////////////////////////////////////
+function reportAll() {
+	console.log("Reporting");
+	const panelsContainer = findPanelsContainer();
+	const panels = findPanels(panelsContainer); 
+	for (panel of panels) {
+		const groups = findEntriesGroups(panel);
+		for (group of groups) {
+			handleGroup(group);
+		}
+	}
+	console.log("Reported");
+}
 
 
 function handleMutations(mutations, observer) {
@@ -177,18 +192,24 @@ function handleGroup(group) {
 	}
 }
 
+/////////////////////////////////////////////////////////////////////
 
 function sendEntryData(data) {
 	//console.log("Reporting entry " + data);
 	req = new XMLHttpRequest()
-	req.open("POST", "http://localhost:8082/add")
+	req.open("POST", "http://localhost:8082/add", false)
 	req.setRequestHeader("Content-Type", "application/json");
 	
 	const json = JSON.stringify(data);
 	req.send(json);
 }
 
-doit();
+/////////////////////////////////////////////////////////////////////
+
+console.log("Type doit() or reportAll() to run it");
+//doit();
+
+/////////////////////////////////////////////////////////////////////
 
 /*
 panelsContainer = findPanelsContainer();

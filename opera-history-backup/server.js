@@ -27,7 +27,7 @@ function dbInsert(db, entry) {
 		+ " VALUES (?,?,?,?,?,?)";
 	const values =[entry.date_spec, entry.time, entry.server, entry.url, entry.title, entry.favicons];
 	db.run(sql, values);
-	console.info("inserted " + JSON.stringify(entry));
+	//console.info("inserted " + JSON.stringify(entry));
 }
 
 function dbDisconnect(db) {
