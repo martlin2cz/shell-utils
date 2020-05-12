@@ -42,6 +42,23 @@ function dbInsert(db, entry) {
 	process.stdout.write(".");
 }
 
+function dbInserts(db, entries) {
+	const sql = "INSERT INTO history" 
+		+ " (date_spec, time, server, url, title, favicons)"
+		+ " VALUES "
+		+ entries.map((e) => "(?,?,?,?,?,?)").join(", ");
+	
+	var values = [];
+	for (entry of entries) {
+		const entryValues = [entry.date_spec, entry.time, entry.server, entry.url, entry.title, entry.favicons];
+		values.push(...entryValues);
+	}
+
+	db.run(sql, values);
+	//console.info("inserted " + JSON.stringify(entries));
+	process.stdout.write("o");
+}
+
 function dbDisconnect(db) {
 	db.close();
 	console.info("database disconected");
@@ -49,10 +66,15 @@ function dbDisconnect(db) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-function wsStart(handler) {
-	ws.use(express.json());
+function wsStart(oneHandler, moreHandler) {
+	ws.use(express.json({
+		extended: true,
+		limit: '10mb'
+	}));
 	ws.use(express.urlencoded({
-		  extended: false
+		extended: false,
+		limit: '10mb'
+
 	}));
 
 	ws.all("/*", function (req, res, next) {
@@ -72,11 +94,20 @@ function wsStart(handler) {
 		//console.log(req.headers);
 		//console.log(req.body);
 		const entry = req.body
-		handler(entry);
+		oneHandler(entry);
 	
 		res.header("Access-Control-Allow-Origin", "*"); 
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 		res.end("ok");
+	})
+
+	ws.post('/adds', function (req, res) {
+		const entries = req.body
+		moreHandler(entries);
+	
+		res.header("Access-Control-Allow-Origin", "*"); 
+		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+		res.end("oks");
 	})
 
 	const server = ws.listen(PORT, function () {
@@ -100,11 +131,16 @@ console.info("Starting the collecter service");
 const db = dbConnect();
 dbCreateTable(db);
 
-const handler = function(entry) {
+const oneHandler = function(entry) {
 	dbInsert(db, entry);
 }
 
-const server = wsStart(handler);
+const moreHandler = function(entries) {
+	dbInserts(db, entries);
+}
+
+
+const server = wsStart(oneHandler, moreHandler);
 
 const interrupter = function() {
 	console.info("Terminating the collecter service");

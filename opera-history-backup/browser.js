@@ -9,6 +9,12 @@
  * */
 const SERVICE_PORT = 8082;
 
+/**
+ * The size of the batch to be reported.
+ * */
+const GROUP_SIZE = 20;
+
+
 ////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -91,7 +97,24 @@ function completeDataFromEntry(entry) {
  * Runs the report of all the entries in all groups in all panels.
  * */
 function reportAll() {
-	console.log("Reporting. To re-run type 'reportAll()'.");
+	// console.log(new Date());
+	console.log("Reporting started. To re-run type 'reportAll()'.");
+	
+	const elements = collectEntriesElements();
+	const datas = collectEntriesDatas(elements);
+	reportTheEntriesDatas(datas);
+	
+	// console.log(new Date());
+	console.log("Reporting done.");
+}
+
+/**
+ * Lists all the entry elements.
+ * */
+function collectEntriesElements() {
+	console.log("collecting the entries elements ...");
+
+	var result = [];
 	const panelsContainer = findPanelsContainer();
 	
 	const panels = findPanels(panelsContainer); 
@@ -100,39 +123,103 @@ function reportAll() {
 		for (group of groups) {
 			const entries = findEntries(group);
 			for (entry of entries) {
-				processEntry(entry);
+				result.push(entry);
 			}
 		}
 	}
-	
-	console.log("Reported");
+
+	return result;
 }
 
 /**
- * Processes the given entry. Collects data and sends them.
+ * For each entry element obtains its data.
  * */
-function processEntry(entry) {
-	data = completeDataFromEntry(entry);
-	sendEntryData(data);
-	console.log("Reported entry");
+function collectEntriesDatas(entries) {
+	return entries.map((entry) => 
+		completeDataFromEntry(entry));
 }
-
 
 /**
- * Sends the given data to server.
+ * Runs the reporting of the given entries datas.
+ * If GROUP_SIZE is bigger than one, reports by groups,
+ * otherwise one by one.
  * */
-function sendEntryData(data) {
-	//console.log("Reporting entry " + data);
-	const req = new XMLHttpRequest();
-	const url = "http://localhost:" + SERVICE_PORT + "/add";
-
-	req.open("POST", url, false);
-	req.setRequestHeader("Content-Type", "application/json");
+function reportTheEntriesDatas(entries) {
+	if (GROUP_SIZE <= 1) {
+		console.log("reporting " + datas.length + " of entries ...");
+		for (entry of entries) {
+			reportEntryData(entry);
+		}
 	
-	const json = JSON.stringify(data);
-	req.send(json);
+	} else {
+		const groups = groupify(entries);
+		console.log("reporting " + groups.length + " of groups ...");
+		for (group of groups) {
+			reportEntriesDatas(group);
+		}
+	}
 }
 
+/**
+ * Splits the given array to groups of GROUP_SIZE size.
+ * */
+function groupify(entries) {
+	var gsi;
+	var result = [];
+	for (gsi = 0; true; gsi += GROUP_SIZE) {
+		const group = entries.slice(gsi, gsi + GROUP_SIZE);
+		
+		if (group.length > 0) {
+			result.push(group);
+		} else {
+			break;
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Sends the given entry data to server.
+ * */
+function reportEntryData(data) {
+	try {
+		const req = new XMLHttpRequest();
+		const url = "http://localhost:" + SERVICE_PORT + "/add";
+
+		req.open("POST", url, false);
+		req.setRequestHeader("Content-Type", "application/json");
+	
+		const json = JSON.stringify(data);
+		req.send(json);
+
+		console.info("reported entry data");
+	} catch (ex) {
+		console.error(ex);
+		console.warn(data);
+	}
+}
+
+/**
+ * Sends the given entry data to server.
+ * */
+function reportEntriesDatas(datas) {
+	try {
+		const req = new XMLHttpRequest();
+		const url = "http://localhost:" + SERVICE_PORT + "/adds";
+
+		req.open("POST", url, false);
+		req.setRequestHeader("Content-Type", "application/json");
+	
+		const json = JSON.stringify(datas);
+		req.send(json);
+
+		console.info("reported group of " + GROUP_SIZE + " entries of datas");
+	} catch (ex) {
+		console.error(ex);
+		console.warn(datas);
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////
 

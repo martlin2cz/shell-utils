@@ -40,7 +40,10 @@ echo "Wait until the nodejs collector service starts"
 #read
 
 # start the nodejs service
-npm start &
+# Note: you cannot start via npm, because it cannot be killed then
+#npm start &
+# start "normally" then:
+nodejs service.js &
 PID=$!
 
 sleep 5
@@ -97,11 +100,11 @@ echo "Collected entries: "
 sqlite3 "history.db" "SELECT COUNT(*) FROM history"
 
 ###############################################################################
-echo "Is the amount of collected entry okay?"
+echo "Is the amount of collected entries okay?"
 read
 
 ###############################################################################
-echo "We are done then!"
+echo "We are done then! You can now close the history page."
 read
 
 echo "Bye"
