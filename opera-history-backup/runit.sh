@@ -1,9 +1,11 @@
 #!/bin/bash
 # Runs the opera history backup.
-# TODO comment
+#
 ###############################################################################
-if [ -e "history.db" ]; then
-	echo "The history file exists already, get it out of the way"
+HISTORY_FILE=$1
+
+if [ "$HISTORY_FILE" == "" ]; then
+	echo "USAGE: $0 [HISTORY_FILE]"
 	exit 1
 fi
 
@@ -43,7 +45,7 @@ echo "Wait until the nodejs collector service starts"
 # Note: you cannot start via npm, because it cannot be killed then
 #npm start &
 # start "normally" then:
-nodejs service.js &
+nodejs service.js $HISTORY_FILE &
 PID=$!
 
 sleep 5

@@ -10,9 +10,11 @@ const express = require('express');
 const ws = express();
 
 ///////////////////////////////////////////////////////////////////////////////
-
-const DB_FILE = "history.db";
+// the port where the service runs on
 const PORT = 8082;
+
+// the database file where to store the collected data
+const DB_FILE = process.argv.slice(2)[0];
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -24,8 +26,8 @@ function dbConnect() {
 }
 
 function dbCreateTable(db) {
-	const sql = "CREATE TABLE history"
-	+ "(date_spec TEXT, time TEXT, server TEXT, url TEXT, title TEXT, favicons TEXT)";
+	const sql = "CREATE TABLE IF NOT EXISTS history"
+	+ "(date TEXT, time TEXT, server TEXT, url TEXT, title TEXT)";
 
 	db.run(sql);
 	console.info("table created");
@@ -33,9 +35,9 @@ function dbCreateTable(db) {
 
 function dbInsert(db, entry) {
 	const sql = "INSERT INTO history" 
-		+ " (date_spec, time, server, url, title, favicons)"
-		+ " VALUES (?,?,?,?,?,?)";
-	const values =[entry.date_spec, entry.time, entry.server, entry.url, entry.title, entry.favicons];
+		+ " (date, time, server, url, title)"
+		+ " VALUES (?,?,?,?,?)";
+	const values =[entry.date, entry.time, entry.server, entry.url, entry.title];
 	db.run(sql, values);
 
 	//console.info("inserted " + JSON.stringify(entry));
@@ -44,13 +46,13 @@ function dbInsert(db, entry) {
 
 function dbInserts(db, entries) {
 	const sql = "INSERT INTO history" 
-		+ " (date_spec, time, server, url, title, favicons)"
+		+ " (date, time, server, url, title)"
 		+ " VALUES "
-		+ entries.map((e) => "(?,?,?,?,?,?)").join(", ");
+		+ entries.map((e) => "(?,?,?,?,?)").join(", ");
 	
 	var values = [];
 	for (entry of entries) {
-		const entryValues = [entry.date_spec, entry.time, entry.server, entry.url, entry.title, entry.favicons];
+		const entryValues = [entry.date, entry.time, entry.server, entry.url, entry.title];
 		values.push(...entryValues);
 	}
 

@@ -61,8 +61,11 @@ function panelOfEntry(entry) {
  * Extract the 'date_spec' value from the given panel.
  * */
 function dateFromPanel(panel) {
-	return panel.shadowRoot
+	const dateSpec = panel.shadowRoot
 		.querySelector('main > h2').firstChild.nodeValue;
+	
+	var matches = dateSpec.match("^([^ ]+ - )?([^ ]+ ([\\d]{1,2}\. [^ ]+ [\\d]{4}))$");
+	return matches.length == 4 ? matches[3] : matches[2];
 }
 
 /**
@@ -73,9 +76,8 @@ function dataFromEntry(entry) {
 	const time = entry.querySelector('.visit-time').firstChild.nodeValue;
 	const server = entry.querySelector('.visit-url').firstChild.nodeValue;
 	const title = entry.querySelector('.visit-title').firstChild.nodeValue;
-	const favicons = entry.querySelector('.visit-favicon').style.backgroundImage;
 
-	return { "url": url, "time": time, "server": server, "title": title, "favicons": favicons};
+	return { "url": url, "time": time, "server": server, "title": title };
 }
 
 /**
@@ -86,8 +88,8 @@ function completeDataFromEntry(entry) {
 	
 	const panel = panelOfEntry(entry);
 
-	dateSpec = dateFromPanel(panel);
-	data['date_spec'] = dateSpec;
+	date = dateFromPanel(panel);
+	data['date'] = date;
 	return data;
 }
 
