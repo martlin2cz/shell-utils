@@ -21,10 +21,13 @@ const GROUP_SIZE = 20;
  * Returns the container with the panels.
  * */
 function findPanelsContainer() {
-	return document
-		.querySelector('body > main-view').shadowRoot
-		.querySelector('section > section > history-page').shadowRoot
-		.querySelector('section > opr-main > opr-content');
+//	return document
+//		.querySelector('body > main-view').shadowRoot
+//		.querySelector('section > section > history-page').shadowRoot
+//		.querySelector('section > opr-main > opr-content');
+	return document.querySelector('body > main-view').shadowRoot
+		.querySelector('section > history-page ').shadowRoot
+		.querySelector('opr-main > opr-content');
 }
 
 /**
