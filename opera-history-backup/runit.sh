@@ -99,7 +99,7 @@ read
 
 # execute the count sql
 echo "Collected entries: "
-sqlite3 "history.db" "SELECT COUNT(*) FROM history"
+sqlite3 $HISTORY_FILE "SELECT COUNT(*) FROM history"
 
 ###############################################################################
 echo "Is the amount of collected entries okay?"
