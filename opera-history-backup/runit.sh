@@ -98,11 +98,14 @@ echo "Verify the collected database"
 read
 
 # execute the count sql
-echo "Collected entries: "
+echo "Collected entries (amount): "
 sqlite3 $HISTORY_FILE "SELECT COUNT(*) FROM history"
 
+echo "Some random entry: "
+sqlite3 $HISTORY_FILE "SELECT * FROM history LIMIT 1"
+
 ###############################################################################
-echo "Is the amount of collected entries okay?"
+echo "Are the collected entries okay?"
 read
 
 ###############################################################################
