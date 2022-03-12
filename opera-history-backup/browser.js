@@ -27,7 +27,7 @@ function findPanelsContainer() {
 //		.querySelector('section > opr-main > opr-content');
 	return document.querySelector('body > main-view').shadowRoot
 		.querySelector('section > history-page ').shadowRoot
-		.querySelector('opr-main > opr-content');
+		.querySelector('section > opr-main > opr-content');
 }
 
 /**
@@ -67,7 +67,8 @@ function dateFromPanel(panel) {
 	const dateSpec = panel.shadowRoot
 		.querySelector('main > h2').firstChild.nodeValue;
 	
-	var matches = dateSpec.match("^([^ ]+ - )?([^ ]+ ([\\d]{1,2}\. [^ ]+ [\\d]{4}))$");
+	//                              Today -    Sunday     ,   March         12     ,    2022       
+	var matches = dateSpec.match("^([^ ]+ - )?([A-Z][a-z]+\, [A-Z][a-z]+ [0-9]{1,2}\, [0-9]{4})$");
 	return matches.length == 4 ? matches[3] : matches[2];
 }
 
