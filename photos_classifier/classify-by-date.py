@@ -9,6 +9,7 @@
 import exifread
 import datetime
 import os
+import shutil
 
 ###############################################################################
 
@@ -93,17 +94,31 @@ def copy_or_move(groups, quora, action, target_owner):
     for date in groups.keys():
         files_count = len(groups[date]) 
         if files_count >= quora:
+            # TODO: if not above the quora, simply ignore?
             dirname = date.strftime(GROUP_DIRNAME_DATE_FORMAT)
-            group_dir = io.path.append(target_owner, dirname)
-            io.mkdir(group_dir)
+            group_dir = os.path.join(target_owner, dirname)
+            os.makedirs(group_dir)
 
             files = groups[date]
-            for photo_vile in files:
-                TODO_copy_or_move(photo_file, group_dir)
+            for photo_file in files:
+                copy_or_move_file(photo_file, action, group_dir)
 
-def dry_run(directories, recurse):
+def copy_or_move_file(photo_file, action, group_dir):
+    """ Copies or moves the given file (based on action) into the given target dir) """
+
+    if action == "copy":
+        shutil.copy(photo_file, group_dir)
+
+    elif action == "move":
+        shutil.move(photo_file, group_dir)
+
+    else:
+        raise Exception("Either copy or move is allowed")
+
+def run(directories, recurse):
     groups = load_and_group(directories, recurse)
-    print_date_histogram(groups)
+    #print_date_histogram(groups)
+    copy_or_move(groups, 2, "copy", "/tmp/photos-1")
 
 ###############################################################################
 
@@ -113,7 +128,7 @@ if __name__ == "__main__":
 #    print(list_files("testing-images", False))
 #    print(list_files(".", True))
 #    print(load_and_group("testing-images", True))
-     print(dry_run("testing-images", True))
+     print(run("testing-images", True))
 
 
  
