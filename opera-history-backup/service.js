@@ -16,6 +16,9 @@ const PORT = 8082;
 // the database file where to store the collected data
 const DB_FILE = process.argv.slice(2)[0];
 
+if (!DB_FILE) {
+	throw "Provide the database file!"
+}
 ///////////////////////////////////////////////////////////////////////////////
 
 
