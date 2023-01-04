@@ -136,7 +136,8 @@ def copy_or_move(groups, quora, action, target_owner):
 
     for date in groups.keys():
         files_count = len(groups[date]) 
-        if files_count < quora:
+        
+        if quora and files_count < quora:
             LOGGER.debug(f"The group {date} has less than {quora} photos, skipping")
              # TODO: if not above the quora, simply ignore?
         else:
@@ -188,10 +189,10 @@ def check_args(parsed_args):
     """ Validates the provided args """
 
     if not os.path.isdir(parsed_args.directory):
-        raise ValueError(f"The ${parsed_args.directory} is not a directory")
+        raise ValueError(f"The {parsed_args.directory} is not a directory")
 
     if parsed_args.destination and not os.path.isdir(parsed_args.destination):
-        raise ValueError(f"The ${parsed_args.destionation} is not a directory")
+        raise ValueError(f"The {parsed_args.destination} is not a directory")
 
 
 def configure_logging(verbose, debug):
