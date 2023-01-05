@@ -21,8 +21,8 @@ HISTO_DATE_FORMAT="%y-%m-%d"
 """ The character to be used to output one picture in the histo output """
 HISTO_CHAR="|"
 
-""" The date format to be used for the group moved/copied photos directory """
-GROUP_DIRNAME_DATE_FORMAT="%y-%m-%d-unknown"
+""" The date format to be used for the group moved/copied photos directory. Can contain %COUNT to render the number of the files in the group """
+GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
 
 
 ###############################################################################
@@ -135,19 +135,21 @@ def copy_or_move(groups, quora, action, target_owner):
     """ Copies or moves the photos in groups excessing the quora into the specified target dir """
 
     for date in groups.keys():
-        files_count = len(groups[date]) 
+        group_files = groups[date]
+        files_count = len(group_files) 
         
         if quora and files_count < quora:
             LOGGER.debug(f"The group {date} has less than {quora} photos, skipping")
              # TODO: if not above the quora, simply ignore?
         else:
             LOGGER.debug(f"The group {date} has exceeded the {quora} quora, processing then")
-            dirname = date.strftime(GROUP_DIRNAME_DATE_FORMAT)
+            dirname = GROUP_DIRNAME_DATE_FORMAT.replace("%COUNT", str(files_count));
+            dirname = date.strftime(dirname)
+
             group_dir = os.path.join(target_owner, dirname)
             os.makedirs(group_dir)
 
-            files = groups[date]
-            for photo_file in files:
+            for photo_file in group_files:
                 copy_or_move_file(photo_file, action, group_dir)
 
 def copy_or_move_file(photo_file, action, group_dir):
