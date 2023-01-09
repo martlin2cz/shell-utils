@@ -12,6 +12,7 @@ import os
 import shutil
 import logging
 import argparse
+import pandas
 
 ###############################################################################
 
@@ -24,6 +25,8 @@ HISTO_CHAR="|"
 """ The date format to be used for the group moved/copied photos directory. Can contain %COUNT to render the number of the files in the group """
 GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
 
+""" The indicator of no date avaiable (do not use None, causes ton of issues) """
+NO_DATE=datetime.date(1970, 1, 1)
 
 ###############################################################################
 
@@ -54,8 +57,8 @@ def date_of_photo(photo_file):
         return actual_datetime.date()
     except Exception:
         LOGGER.error(f"Date of photo {photo_file} obtain failed")
-        return datetime.date(1970, 1, 1)
-       
+        return NO_DATE
+
 def list_files(directory, recurse):
     """ Lists all the files in the given directory, possibly recurring """
 
@@ -116,10 +119,19 @@ def print_date_histogram(groups, quora = None):
         quora_bar_str = HISTO_CHAR * quora
         print("%9s : %s" % ("quora", quora_bar_str))
     
-    #TODO print all dates from first to last, if specified
-    for date in groups.keys():
+    min_date = min(groups.keys())
+    if (min_date == NO_DATE):
+        min_date = sorted(groups.keys())[1]
+
+    max_date = max(groups.keys())
+    dates_range = pandas.date_range(min_date, max_date)
+    for date in dates_range:
         date_str = date.strftime(HISTO_DATE_FORMAT)
-        files_count = len(groups[date])
+        if date in groups.keys():
+            files_count = len(groups[date])
+        else:
+            files_count = 0
+
         bar_str = HISTO_CHAR * files_count
         print("%9s : %s" % (date_str, bar_str))
 
