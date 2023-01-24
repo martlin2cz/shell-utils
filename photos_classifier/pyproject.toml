@@ -2,6 +2,7 @@
 name = "photos_classifier"
 version = "1.0"
 dependencies = [
+	"pandas",
 	"exifread",
 ]
 
