@@ -112,19 +112,31 @@ def load_and_group(directory, recurse):
 
     return result
 
-def print_date_histogram(groups, quora = None):
+def range_the_dates(groups, include_empty):
+    """ Returns the range of dates to iterate over in the given groups.
+    If include_empty is true, returns all dates between the starting and ending.
+    Otherwise just the dates of the groups. """
+
+    if include_empty:
+        min_date = min(groups.keys())
+        if (min_date == NO_DATE):
+            min_date = sorted(groups.keys())[1]
+
+        max_date = max(groups.keys())
+        ranged = pandas.date_range(min_date, max_date)
+        return map(lambda d: d.date(), ranged)
+    else:
+        return sorted(groups.keys())
+    
+
+def print_date_histogram(groups, include_empty = None, quora = None):
     """ Prints the symbolic histogram of date->number of photos """
 
     if quora:
         quora_bar_str = HISTO_CHAR * quora
         print("%9s : %s" % ("quora", quora_bar_str))
     
-    min_date = min(groups.keys())
-    if (min_date == NO_DATE):
-        min_date = sorted(groups.keys())[1]
-
-    max_date = max(groups.keys())
-    dates_range = pandas.date_range(min_date, max_date)
+    dates_range = range_the_dates(groups, include_empty)
     for date in dates_range:
         date_str = date.strftime(HISTO_DATE_FORMAT)
         if date in groups.keys():
@@ -135,12 +147,18 @@ def print_date_histogram(groups, quora = None):
         bar_str = HISTO_CHAR * files_count
         print("%9s : %s" % (date_str, bar_str))
 
-def print_files_by_date(groups):
+def print_files_by_date(groups, include_empty):
     """ Prints just the date->list of files """
 
-    for date in sorted(groups.keys()):
+    dates_range = range_the_dates(groups, include_empty)
+    for date in dates_range:
         date_str = date.strftime(HISTO_DATE_FORMAT)
-        files = groups[date]
+
+        if date in groups.keys():
+            files = groups[date]
+        else:
+            files = []
+
         print(date_str + " -> " + str(files))
 
 def copy_or_move(groups, quora, action, target_owner):
@@ -186,15 +204,15 @@ def _run(directories, recurse):
     #print_date_histogram(groups, 2)
     #copy_or_move(groups, 2, "copy", "/tmp/photos-1")
 
-def doit(directory, recurse, action, quora = None, destination = None):
+def doit(directory, recurse, action, include_empty = False, quora = None, destination = None):
     """ Does the actual action with the given directory (possibly recursivelly), with the optional quora and destination) """
     groups = load_and_group(directory, recurse)
 
     if action == "histo":
-        print_date_histogram(groups, quora)
+        print_date_histogram(groups, include_empty, quora)
 
     if action == "list":
-        print_files_by_date(groups)
+        print_files_by_date(groups, include_empty)
 
     if action == "copy" or action == "move":
         copy_or_move(groups, quora, action, destination)
@@ -240,6 +258,9 @@ parser.add_argument("-r", "--recursive", action = "store_true",
 parser.add_argument("-q", "--quora", action = "store", type = int,
         help = "Specifies what amount of photos per day starts to be interresting (smaller amount ignores the day by -a=copy and -a=move)")
 
+parser.add_argument("-e", "--include-empty", action = "store_true", dest = "include_empty",
+        help = "When -a=list or -a=histo, output for all days (even the ones with no photos at all) (otherwise days having at least one)")
+
 parser.add_argument("-d", "--destination", action = "store",
         help = "When -a=copy or -a=move set, specifies where to copy/move the files to (their owning group dirs)")
 
@@ -256,7 +277,7 @@ if __name__ == "__main__":
     parsed = parser.parse_args()
     check_args(parsed)
     configure_logging(parsed.verbose, parsed.debug)
-    doit(parsed.directory, parsed.recursive, parsed.action, parsed.quora, parsed.destination)
+    doit(parsed.directory, parsed.recursive, parsed.action, parsed.include_empty, parsed.quora, parsed.destination)
 
 #    print(date_of_photo("testing-images/detaily-o-zasilce.jpg"))
 #    print(date_of_photo("testing-images/kus-qeerka.jpg"))
