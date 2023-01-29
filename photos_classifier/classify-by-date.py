@@ -53,7 +53,6 @@ def date_of_photo(photo_file):
     """ Returns the actual DATE of the photo taken at, but as datetime date object """ 
 
     try:
-        LOGGER.debug(f"Loading date taken of photo {photo_file}")
         raw_datetime = datetime_of_photo_raw(photo_file)
         actual_datetime = datetime.datetime.strptime(str(raw_datetime), "%Y:%m:%d %H:%M:%S")
         return actual_datetime.date()
@@ -76,9 +75,8 @@ def date_of_video(video_file):
     """ Returns the actual DATE of the video shot at, but as datetime date object """ 
 
     try:
-        LOGGER.debug(f"Loading date taken of video {video_file}")
         raw_datetime = datetime_of_video_raw(video_file)
-        actual_datetime = datetime.datetime.strptime(str(raw_datetime), "%Y:%m:%d %H:%M:%S")
+        actual_datetime = datetime.datetime.strptime(srt, "%Y-%m-%dT%H:%M:%S.%f%z")
         return actual_datetime.date()
     except Exception:
         LOGGER.debug(f"Date of video {video_file} obtain failed")
@@ -88,17 +86,19 @@ def date_of_video(video_file):
 def date_of_media(media_file):
     """ Returns the actual DATE of the photo/video taken at, as datetime date object """ 
 
-    LOGGER.debug(f"Loading date taken/shot of {media_file}")
+    LOGGER.debug(f"Loading date of taken/shot of {media_file}")
         
     date = date_of_photo(media_file)
-    if date:
+    if date != NO_DATE:
+        LOGGER.debug(f"Media file {media_file} is a photo taken at {date}")
         return date
 
     date = date_of_video(media_file)
-    if date:
-        return date
+    if date != NO_DATE:
+       LOGGER.debug(f"Media file {media_file} is a video shot at {date}")
+       return date
 
-    LOGGER.error(f"Date of media {video_file} obtain failed")
+    LOGGER.error(f"Media file {media_file} date of take/shot obtain failed")
     return NO_DATE
 
 def list_files(directory, recurse):
