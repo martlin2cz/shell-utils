@@ -47,7 +47,7 @@ def datetime_of_photo_raw(photo_file):
         if "Image DateTime" in tags.keys():
             return tags["Image DateTime"]
 
-        raise ValueError(f"The file {photo_file} doesn't contain timestamp")
+        raise ValueError(f"The file {photo_file} doesn't contain EXIF timestamp")
 
 def date_of_photo(photo_file):
     """ Returns the actual DATE of the photo taken at, but as datetime date object """ 
@@ -56,20 +56,22 @@ def date_of_photo(photo_file):
         raw_datetime = datetime_of_photo_raw(photo_file)
         actual_datetime = datetime.datetime.strptime(str(raw_datetime), "%Y:%m:%d %H:%M:%S")
         return actual_datetime.date()
-    except Exception:
-        LOGGER.debug(f"Date of photo {photo_file} obtain failed")
+    except Exception as ex:
+        LOGGER.debug(f"Date of photo {photo_file} obtain failed: {ex}")
         return NO_DATE
 
 
 def datetime_of_video_raw(video_file):
     """ Returns the datetime of the video shot at, as a raw string """
 
-    video_metadata = ffmpeg.probe(media_file)
+    video_metadata = ffmpeg.probe(video_file)
     for stream in video["streams"]:
         if "tags" in keys(stream):
             tags = stream["tags"]
             if "creation_time" in tags:
                 return tags["creation_time"]
+
+    raise ValueError(f"The file {video_file} doesnť contain any creation_time metadata")
  
 def date_of_video(video_file):
     """ Returns the actual DATE of the video shot at, but as datetime date object """ 
@@ -78,15 +80,15 @@ def date_of_video(video_file):
         raw_datetime = datetime_of_video_raw(video_file)
         actual_datetime = datetime.datetime.strptime(srt, "%Y-%m-%dT%H:%M:%S.%f%z")
         return actual_datetime.date()
-    except Exception:
-        LOGGER.debug(f"Date of video {video_file} obtain failed")
+    except Exception as ex:
+        LOGGER.debug(f"Date of video {video_file} obtain failed: {ex}")
         return NO_DATE
    
 
 def date_of_media(media_file):
     """ Returns the actual DATE of the photo/video taken at, as datetime date object """ 
 
-    LOGGER.debug(f"Loading date of taken/shot of {media_file}")
+    LOGGER.debug(f"Loading date of taken/shot of {media_file} ...")
         
     date = date_of_photo(media_file)
     if date != NO_DATE:
