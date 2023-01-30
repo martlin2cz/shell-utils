@@ -13,6 +13,7 @@ import shutil
 import logging
 import argparse
 import pandas
+import ffmpeg
 
 ###############################################################################
 
@@ -46,18 +47,61 @@ def datetime_of_photo_raw(photo_file):
         if "Image DateTime" in tags.keys():
             return tags["Image DateTime"]
 
-        raise ValueError(f"The file {photo_file} doesn't contain timestamp")
+        raise ValueError(f"The file {photo_file} doesn't contain EXIF timestamp")
 
 def date_of_photo(photo_file):
     """ Returns the actual DATE of the photo taken at, but as datetime date object """ 
+
     try:
-        LOGGER.debug(f"Loading date taken of {photo_file}")
         raw_datetime = datetime_of_photo_raw(photo_file)
         actual_datetime = datetime.datetime.strptime(str(raw_datetime), "%Y:%m:%d %H:%M:%S")
         return actual_datetime.date()
-    except Exception:
-        LOGGER.error(f"Date of photo {photo_file} obtain failed")
+    except Exception as ex:
+        LOGGER.debug(f"Date of photo {photo_file} obtain failed: {ex}")
         return NO_DATE
+
+
+def datetime_of_video_raw(video_file):
+    """ Returns the datetime of the video shot at, as a raw string """
+
+    video_metadata = ffmpeg.probe(video_file)
+    for stream in video["streams"]:
+        if "tags" in keys(stream):
+            tags = stream["tags"]
+            if "creation_time" in tags:
+                return tags["creation_time"]
+
+    raise ValueError(f"The file {video_file} doesnť contain any creation_time metadata")
+ 
+def date_of_video(video_file):
+    """ Returns the actual DATE of the video shot at, but as datetime date object """ 
+
+    try:
+        raw_datetime = datetime_of_video_raw(video_file)
+        actual_datetime = datetime.datetime.strptime(srt, "%Y-%m-%dT%H:%M:%S.%f%z")
+        return actual_datetime.date()
+    except Exception as ex:
+        LOGGER.debug(f"Date of video {video_file} obtain failed: {ex}")
+        return NO_DATE
+   
+
+def date_of_media(media_file):
+    """ Returns the actual DATE of the photo/video taken at, as datetime date object """ 
+
+    LOGGER.debug(f"Loading date of taken/shot of {media_file} ...")
+        
+    date = date_of_photo(media_file)
+    if date != NO_DATE:
+        LOGGER.debug(f"Media file {media_file} is a photo taken at {date}")
+        return date
+
+    date = date_of_video(media_file)
+    if date != NO_DATE:
+       LOGGER.debug(f"Media file {media_file} is a video shot at {date}")
+       return date
+
+    LOGGER.error(f"Media file {media_file} date of take/shot obtain failed")
+    return NO_DATE
 
 def list_files(directory, recurse):
     """ Lists all the files in the given directory, possibly recurring """
@@ -76,39 +120,39 @@ def list_files(directory, recurse):
     return result
 
 def load(directory, recurse):
-    """ Loads the photos and their date of taken into file->date dict"""
+    """ Loads the medias and their date of taken into file->date dict"""
 
     files = list_files(directory, recurse)
     files_count = len(files)
-    LOGGER.info(f"Loaded {files_count} photo files")
+    LOGGER.info(f"Loaded {files_count} media files")
 
-    with_dates = dict(map( lambda f: (f, date_of_photo(f)), files))
-    LOGGER.info(f"Loaded dates of taken of the loaded photos")
+    with_dates = dict(map( lambda f: (f, date_of_media(f)), files))
+    LOGGER.info(f"Loaded dates of taken of the loaded medias")
     return with_dates
 
 def load_and_group(directory, recurse):
-    """ Loads the photos in the given directory and groups them by date of taken """
+    """ Loads the medias in the given directory and groups them by date of taken """
 
     files = load(directory, recurse)
     files_count = len(files)
 
     result = {}
-    for photo_file in files.keys():
-        date = files[photo_file]
+    for media_file in files.keys():
+        date = files[media_file]
         group_of_date = None
 
         if date in result.keys():
-            LOGGER.debug(f"Inserting {photo_file} into existing group {date}")
+            LOGGER.debug(f"Inserting {media_file} into existing group {date}")
             group_of_date = result[date]
         else:
-            LOGGER.debug(f"Creating new group {date} for {photo_file}")
+            LOGGER.debug(f"Creating new group {date} for {media_file}")
             group_of_date = []
             result[date] = group_of_date
 
-        group_of_date.append(photo_file)
+        group_of_date.append(media_file)
 
     groups_count = len(result)
-    LOGGER.info(f"Collected {groups_count} groups, averaging {files_count / groups_count} photos per group")
+    LOGGER.info(f"Collected {groups_count} groups, averaging {files_count / groups_count} medias per group")
 
     return result
 
@@ -130,7 +174,7 @@ def range_the_dates(groups, include_empty):
     
 
 def print_date_histogram(groups, include_empty = None, quora = None):
-    """ Prints the symbolic histogram of date->number of photos """
+    """ Prints the symbolic histogram of date->number of medias """
 
     if quora:
         quora_bar_str = HISTO_CHAR * quora
@@ -162,14 +206,14 @@ def print_files_by_date(groups, include_empty):
         print(date_str + " -> " + str(files))
 
 def copy_or_move(groups, quora, action, target_owner):
-    """ Copies or moves the photos in groups excessing the quora into the specified target dir """
+    """ Copies or moves the medias in groups excessing the quora into the specified target dir """
 
     for date in groups.keys():
         group_files = groups[date]
         files_count = len(group_files) 
         
         if quora and files_count < quora:
-            LOGGER.debug(f"The group {date} has less than {quora} photos, skipping")
+            LOGGER.debug(f"The group {date} has less than {quora} medias, skipping")
              # TODO: if not above the quora, simply ignore?
         else:
             LOGGER.debug(f"The group {date} has exceeded the {quora} quora, processing then")
@@ -179,18 +223,18 @@ def copy_or_move(groups, quora, action, target_owner):
             group_dir = os.path.join(target_owner, dirname)
             os.makedirs(group_dir)
 
-            for photo_file in group_files:
-                copy_or_move_file(photo_file, action, group_dir)
+            for media_file in group_files:
+                copy_or_move_file(media_file, action, group_dir)
 
-def copy_or_move_file(photo_file, action, group_dir):
+def copy_or_move_file(media_file, action, group_dir):
     """ Copies or moves the given file (based on action) into the given target dir) """
 
     if action == "copy":
-        LOGGER.debug(f"Copiing {photo_file} to {group_dir}")
+        LOGGER.debug(f"Copiing {media_file} to {group_dir}")
         shutil.copy(photo_file, group_dir)
 
     elif action == "move":
-         LOGGER.debug(f"Moving {photo_file} to {group_dir}")
+         LOGGER.debug(f"Moving {media_file} to {group_dir}")
          shutil.move(photo_file, group_dir)
 
     else:
@@ -245,7 +289,7 @@ def configure_logging(verbose, debug):
 ###############################################################################
 
 parser = argparse.ArgumentParser(
-        description = "Classifies (by coping, moving, or just outputting to console) photos by date (day)")
+        description = "Classifies (by coping, moving, or just outputting to console) photos or videos (or possibly any other media file, based on its format) by date (day)")
 
 parser.add_argument("-a", "--action", action = "store",
         choices = ["list", "histo", "copy", "move"], 
@@ -253,13 +297,13 @@ parser.add_argument("-a", "--action", action = "store",
         help = "What to do with the result. Just output the date->files mapping, show a histogram (date->number of files) (DEFAULT) or copy or move the files into folder for each day?")
 
 parser.add_argument("-r", "--recursive", action = "store_true",
-        help = "If set, will look for the photo files in the DIRECTORY recursivelly")
+        help = "If set, will look for the photo/video files in the DIRECTORY recursivelly")
 
 parser.add_argument("-q", "--quora", action = "store", type = int,
-        help = "Specifies what amount of photos per day starts to be interresting (smaller amount ignores the day by -a=copy and -a=move)")
+        help = "Specifies what amount of photos/videos per day starts to be interresting (smaller amount ignores the day by -a=copy and -a=move)")
 
 parser.add_argument("-e", "--include-empty", action = "store_true", dest = "include_empty",
-        help = "When -a=list or -a=histo, output for all days (even the ones with no photos at all) (otherwise days having at least one)")
+        help = "When -a=list or -a=histo, output for all days (even the ones with no photos/videos at all) (otherwise days having at least one)")
 
 parser.add_argument("-d", "--destination", action = "store",
         help = "When -a=copy or -a=move set, specifies where to copy/move the files to (their owning group dirs)")
@@ -271,7 +315,7 @@ parser.add_argument("-D", "--debug", action = "store_true",
         help = "Enables full debug output")
 
 parser.add_argument("directory", metavar = "DIRECTORY",
-        help = "The directory to scan for the photo files (either --recursive or not)")
+        help = "The directory to scan for the photo/video files (either --recursive or not)")
 
 if __name__ == "__main__":
     parsed = parser.parse_args()
