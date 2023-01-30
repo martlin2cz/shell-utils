@@ -274,6 +274,9 @@ def check_args(parsed_args):
 def configure_logging(verbose, debug):
     """ Sets the logger configuration based on the command line flags """
 
+    exif_logger = logging.getLogger("exifread")
+    exif_logger.setLevel(logging.ERROR)
+
     if not (verbose or debug):
         return
     
