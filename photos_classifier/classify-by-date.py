@@ -204,7 +204,8 @@ def range_the_dates(groups, include_empty):
         ranged = pandas.date_range(min_date, max_date)
         return map(lambda d: d.date(), ranged)
     else:
-        return sorted(set(groups.keys()))
+        dated = map(lambda d: d.date(), groups.keys())
+        return sorted(set(dated))
     
 
 def print_date_histogram(groups, include_empty = None, quora = None):
@@ -267,10 +268,10 @@ def print_by_hours(groups, include_empty_days = None, frmt = "count"):
         sys.stdout.write("%9s |" % (date_str))
 
         for hour in range(0, 24):
-            datetime = date.replace(hour = hour)
+            datetimed = datetime.datetime.combine(date, datetime.time(hour, 0, 0))
 
-            if datetime in groups.keys():
-                files_count = len(groups[datetime])
+            if datetimed in groups.keys():
+                files_count = len(groups[datetimed])
             else:
                 files_count = 0
 
