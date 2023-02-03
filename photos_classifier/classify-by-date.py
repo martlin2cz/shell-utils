@@ -14,6 +14,7 @@ import logging
 import argparse
 import pandas
 import ffmpeg
+import sys
 
 ###############################################################################
 
@@ -27,7 +28,7 @@ HISTO_CHAR="|"
 GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
 
 """ The indicator of no date avaiable (do not use None, causes ton of issues) """
-NO_DATE=datetime.date(1970, 1, 1)
+NO_DATE=datetime.datetime(1970, 1, 1, 0, 0, 0)
 
 ###############################################################################
 
@@ -157,7 +158,7 @@ def load_and_group_by_date(directory, recurse):
 
     return result
 
-def load_and_group_by_day_and_hours(directory, recurse):
+def load_and_group_by_day_and_hour(directory, recurse):
     """ Loads the medias in the given directory and groups them by date and hour of taken """
 
     files = load(directory, recurse)
@@ -199,7 +200,7 @@ def range_the_dates(groups, include_empty):
         ranged = pandas.date_range(min_date, max_date)
         return map(lambda d: d.date(), ranged)
     else:
-        return sorted(groups.keys())
+        return sorted(set(groups.keys()))
     
 
 def print_date_histogram(groups, include_empty = None, quora = None):
@@ -223,7 +224,31 @@ def print_date_histogram(groups, include_empty = None, quora = None):
 def print_by_hours(groups, include_empty = None):
     """ Prints the table days x hours, having identifier of photos in each cell """
 
-    print("TODO") 
+    sys.stdout.write("%9s |" % ("hour"))
+    for hour in range(0, 24):
+        sys.stdout.write(str(hour % 10))
+
+    sys.stdout.write("\n")
+
+    dates_range = range_the_dates(groups, include_empty)
+    for date in dates_range:
+        date_str = date.strftime(HISTO_DATE_FORMAT)
+        sys.stdout.write("%9s |" % (date_str))
+
+        for hour in range(0, 24):
+            datetime = date.replace(hour = hour)
+
+            if datetime in groups.keys():
+                files_count = len(groups[datetime])
+            else:
+                files_count = 0
+
+            if files_count:
+                sys.stdout.write(str(files_count))
+            else:
+                sys.stdout.write(".");
+
+        sys.stdout.write("\n")
 
 def print_files_by_date(groups, include_empty):
     """ Prints just the date->list of files """
@@ -286,7 +311,7 @@ def doit(directory, recurse, action, include_empty = False, quora = None, destin
     """ Does the actual action with the given directory (possibly recursivelly), with the optional quora and destination) """
     groups = None
     if action == "hours":
-        groups = load_and_group_by_hour(directory, recurse)
+        groups = load_and_group_by_day_and_hour(directory, recurse)
     else:
         groups = load_and_group_by_date(directory, recurse)
 
