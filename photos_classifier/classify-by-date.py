@@ -15,6 +15,7 @@ import argparse
 import pandas
 import ffmpeg
 import sys
+import numpy
 
 ###############################################################################
 
@@ -29,6 +30,9 @@ GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
 
 """ The indicator of no date avaiable (do not use None, causes ton of issues) """
 NO_DATE=datetime.datetime(1970, 1, 1, 0, 0, 0)
+
+""" The scale of charecters going from 0 files to oo files """
+SCALE_CHARS=" .,;!?IHW#"
 
 ###############################################################################
 
@@ -221,16 +225,43 @@ def print_date_histogram(groups, include_empty = None, quora = None):
         bar_str = HISTO_CHAR * files_count
         print("%9s : %s" % (date_str, bar_str))
 
-def print_by_hours(groups, include_empty = None):
-    """ Prints the table days x hours, having identifier of photos in each cell """
+def format_number_of_medias(files_count, frmt):
+    """ Formats the given files_count based on the format """
+
+    if frmt == "count":
+        if files_count:  
+            return "%4d" % (files_count)    
+        else:
+            return "%4s" % (".")
+        
+    if frmt == "simple_count":
+        if files_count == 0:
+            return "."
+    
+        if files_count > 9:
+            return "+"
+        
+        return str(files_count)
+    
+    if frmt == "scale":
+        scale_len = len(SCALE_CHARS)
+        index = int(numpy.floor(scale_len * numpy.tanh(files_count / scale_len)))
+        return SCALE_CHARS[index];
+
+
+def print_by_hours(groups, include_empty_days = None, frmt = "count"):
+    """ Prints the table days x hours, having number of photos in each cell """
 
     sys.stdout.write("%9s |" % ("hour"))
     for hour in range(0, 24):
-        sys.stdout.write(str(hour % 10))
+        if frmt == "count":
+            sys.stdout.write("%4d" % (hour))
+        else:
+            sys.stdout.write(str(hour % 10))
 
     sys.stdout.write("\n")
 
-    dates_range = range_the_dates(groups, include_empty)
+    dates_range = range_the_dates(groups, include_empty_days)
     for date in dates_range:
         date_str = date.strftime(HISTO_DATE_FORMAT)
         sys.stdout.write("%9s |" % (date_str))
@@ -243,10 +274,8 @@ def print_by_hours(groups, include_empty = None):
             else:
                 files_count = 0
 
-            if files_count:
-                sys.stdout.write(str(files_count))
-            else:
-                sys.stdout.write(".");
+            formated = format_number_of_medias(files_count, frmt)
+            sys.stdout.write(formated)
 
         sys.stdout.write("\n")
 
@@ -307,7 +336,7 @@ def _run(directories, recurse):
     #print_date_histogram(groups, 2)
     #copy_or_move(groups, 2, "copy", "/tmp/photos-1")
 
-def doit(directory, recurse, action, include_empty = False, quora = None, destination = None):
+def doit(directory, recurse, action, include_empty = False, quora = None, destination = None, display_format = "count"):
     """ Does the actual action with the given directory (possibly recursivelly), with the optional quora and destination) """
     groups = None
     if action == "hours":
@@ -325,7 +354,7 @@ def doit(directory, recurse, action, include_empty = False, quora = None, destin
         copy_or_move(groups, quora, action, destination)
 
     if action == "hours":
-        print_by_hours(groups, include_empty)
+        print_by_hours(groups, include_empty, display_format)
 
 def check_args(parsed_args):
     """ Validates the provided args """
@@ -378,6 +407,11 @@ parser.add_argument("-e", "--include-empty", action = "store_true", dest = "incl
 parser.add_argument("-d", "--destination", action = "store",
         help = "When -a=copy or -a=move set, specifies where to copy/move the files to (their owning group dirs)")
 
+parser.add_argument("-f", "--display-format", action = "store",
+        choices = ["count", "simple_count", "scale"],
+        default = "scale",
+        help = "When -a=hours, specifies whether to print the number of medias ('count') count as 0-9 (or +) ('simple_count') or character scale ('scale') (DEFAULT)")
+
 parser.add_argument("-v", "--verbose", action = "store_true",
         help = "Enables verbose output")
 
@@ -391,7 +425,7 @@ if __name__ == "__main__":
     parsed = parser.parse_args()
     check_args(parsed)
     configure_logging(parsed.verbose, parsed.debug)
-    doit(parsed.directory, parsed.recursive, parsed.action, parsed.include_empty, parsed.quora, parsed.destination)
+    doit(parsed.directory, parsed.recursive, parsed.action, parsed.include_empty, parsed.quora, parsed.destination, parsed.display_format)
 
 #    print(date_of_photo("testing-images/detaily-o-zasilce.jpg"))
 #    print(date_of_photo("testing-images/kus-qeerka.jpg"))
