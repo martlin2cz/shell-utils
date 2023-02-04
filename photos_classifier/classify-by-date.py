@@ -32,7 +32,7 @@ GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
 NO_DATE=datetime.datetime(1970, 1, 1, 0, 0, 0)
 
 """ The scale of charecters going from 0 files to oo files """
-SCALE_CHARS=" .,;!?IHW#"
+SCALE_CHARS=" .,;!iILHM8%@#"
 
 ###############################################################################
 
@@ -246,7 +246,9 @@ def format_number_of_medias(files_count, frmt):
     
     if frmt == "scale":
         scale_len = len(SCALE_CHARS)
-        index = int(numpy.floor(scale_len * numpy.tanh(files_count / scale_len)))
+        index = int(numpy.floor(scale_len * numpy.tanh(files_count / (1.2 * scale_len))))
+        if index >= scale_len:
+            index = scale_len - 1
         return SCALE_CHARS[index];
 
 
@@ -437,4 +439,4 @@ if __name__ == "__main__":
 #    LOGGER.setLevel(logging.DEBUG)
 #    print(run("testing-images", True))
 #    print(parser.parse_args(["-v", "--debug", "--quora", "42", "foobar"]))
- 
+#   print(list(map(lambda n: format_number_of_medias(n, "scale"), range(0,60))))
