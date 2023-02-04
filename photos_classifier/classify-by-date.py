@@ -14,6 +14,8 @@ import logging
 import argparse
 import pandas
 import ffmpeg
+import sys
+import numpy
 
 ###############################################################################
 
@@ -27,7 +29,10 @@ HISTO_CHAR="|"
 GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
 
 """ The indicator of no date avaiable (do not use None, causes ton of issues) """
-NO_DATE=datetime.date(1970, 1, 1)
+NO_DATE=datetime.datetime(1970, 1, 1, 0, 0, 0)
+
+""" The scale of charecters going from 0 files to oo files """
+SCALE_CHARS=" .,;!iILHM8%@#"
 
 ###############################################################################
 
@@ -49,15 +54,15 @@ def datetime_of_photo_raw(photo_file):
 
         raise ValueError(f"The file {photo_file} doesn't contain EXIF timestamp")
 
-def date_of_photo(photo_file):
-    """ Returns the actual DATE of the photo taken at, but as datetime date object """ 
+def datetime_of_photo(photo_file):
+    """ Returns the actual DATE AND TIME of the photo taken at, but as datetime date object """ 
 
     try:
         raw_datetime = datetime_of_photo_raw(photo_file)
         actual_datetime = datetime.datetime.strptime(str(raw_datetime), "%Y:%m:%d %H:%M:%S")
-        return actual_datetime.date()
+        return actual_datetime
     except Exception as ex:
-        LOGGER.debug(f"Date of photo {photo_file} obtain failed: {ex}")
+        LOGGER.debug(f"Datetime of photo {photo_file} obtain failed: {ex}")
         return NO_DATE
 
 
@@ -71,36 +76,36 @@ def datetime_of_video_raw(video_file):
             if "creation_time" in tags:
                 return tags["creation_time"]
 
-    raise ValueError(f"The file {video_file} doesnť contain any creation_time metadata")
+    raise ValueError(f"The file {video_file} doesn't contain any creation_time metadata")
  
-def date_of_video(video_file):
-    """ Returns the actual DATE of the video shot at, but as datetime date object """ 
+def datetime_of_video(video_file):
+    """ Returns the actual DATE AND TIME of the video shot at, but as datetime date object """ 
 
     try:
         raw_datetime = datetime_of_video_raw(video_file)
         actual_datetime = datetime.datetime.strptime(srt, "%Y-%m-%dT%H:%M:%S.%f%z")
-        return actual_datetime.date()
+        return actual_datetime
     except Exception as ex:
-        LOGGER.debug(f"Date of video {video_file} obtain failed: {ex}")
+        LOGGER.debug(f"Datetime of video {video_file} obtain failed: {ex}")
         return NO_DATE
    
 
-def date_of_media(media_file):
-    """ Returns the actual DATE of the photo/video taken at, as datetime date object """ 
+def datetime_of_media(media_file):
+    """ Returns the actual DATE AND TIME of the photo/video taken at, as datetime date object """ 
 
-    LOGGER.debug(f"Loading date of taken/shot of {media_file} ...")
+    LOGGER.debug(f"Loading datetime of taken/shot of {media_file} ...")
         
-    date = date_of_photo(media_file)
-    if date != NO_DATE:
-        LOGGER.debug(f"Media file {media_file} is a photo taken at {date}")
-        return date
+    media_datetime = datetime_of_photo(media_file)
+    if media_datetime != NO_DATE:
+        LOGGER.debug(f"Media file {media_file} is a photo taken at {media_datetime}")
+        return media_datetime
 
-    date = date_of_video(media_file)
-    if date != NO_DATE:
-       LOGGER.debug(f"Media file {media_file} is a video shot at {date}")
-       return date
+    media_datetime = datetime_of_video(media_file)
+    if media_datetime != NO_DATE:
+       LOGGER.debug(f"Media file {media_file} is a video shot at {media_datetime}")
+       return media_datetime
 
-    LOGGER.error(f"Media file {media_file} date of take/shot obtain failed")
+    LOGGER.error(f"Media file {media_file} datetime of take/shot obtain failed")
     return NO_DATE
 
 def list_files(directory, recurse):
@@ -126,11 +131,11 @@ def load(directory, recurse):
     files_count = len(files)
     LOGGER.info(f"Loaded {files_count} media files")
 
-    with_dates = dict(map( lambda f: (f, date_of_media(f)), files))
+    with_datetimes = dict(map( lambda f: (f, datetime_of_media(f)), files))
     LOGGER.info(f"Loaded dates of taken of the loaded medias")
-    return with_dates
+    return with_datetimes
 
-def load_and_group(directory, recurse):
+def load_and_group_by_date(directory, recurse):
     """ Loads the medias in the given directory and groups them by date of taken """
 
     files = load(directory, recurse)
@@ -138,7 +143,8 @@ def load_and_group(directory, recurse):
 
     result = {}
     for media_file in files.keys():
-        date = files[media_file]
+        media_datetime = files[media_file]
+        date = media_datetime.date()
         group_of_date = None
 
         if date in result.keys():
@@ -156,6 +162,34 @@ def load_and_group(directory, recurse):
 
     return result
 
+def load_and_group_by_day_and_hour(directory, recurse):
+    """ Loads the medias in the given directory and groups them by date and hour of taken """
+
+    files = load(directory, recurse)
+    files_count = len(files)
+
+    result = {}
+    for media_file in files.keys():
+        media_datetime = files[media_file]
+        hour = media_datetime.replace(microsecond=0, second=0, minute=0)
+        group_of_hour = None
+
+        if hour in result.keys():
+            LOGGER.debug(f"Inserting {media_file} into existing group {hour}")
+            group_of_hour = result[hour]
+        else:
+            LOGGER.debug(f"Creating new group {hour} for {media_file}")
+            group_of_hour = []
+            result[hour] = group_of_hour
+
+        group_of_hour.append(media_file)
+
+    groups_count = len(result)
+    LOGGER.info(f"Collected {groups_count} groups, averaging {files_count / groups_count} medias per group")
+
+    return result
+
+
 def range_the_dates(groups, include_empty):
     """ Returns the range of dates to iterate over in the given groups.
     If include_empty is true, returns all dates between the starting and ending.
@@ -170,7 +204,8 @@ def range_the_dates(groups, include_empty):
         ranged = pandas.date_range(min_date, max_date)
         return map(lambda d: d.date(), ranged)
     else:
-        return sorted(groups.keys())
+        dated = map(lambda d: d.date(), groups.keys())
+        return sorted(set(dated))
     
 
 def print_date_histogram(groups, include_empty = None, quora = None):
@@ -190,6 +225,62 @@ def print_date_histogram(groups, include_empty = None, quora = None):
 
         bar_str = HISTO_CHAR * files_count
         print("%9s : %s" % (date_str, bar_str))
+
+def format_number_of_medias(files_count, frmt):
+    """ Formats the given files_count based on the format """
+
+    if frmt == "count":
+        if files_count:  
+            return "%4d" % (files_count)    
+        else:
+            return "%4s" % (".")
+        
+    if frmt == "simple_count":
+        if files_count == 0:
+            return "."
+    
+        if files_count > 9:
+            return "+"
+        
+        return str(files_count)
+    
+    if frmt == "scale":
+        scale_len = len(SCALE_CHARS)
+        index = int(numpy.floor(scale_len * numpy.tanh(files_count / (1.2 * scale_len))))
+        if index >= scale_len:
+            index = scale_len - 1
+        return SCALE_CHARS[index];
+
+
+def print_by_hours(groups, include_empty_days = None, frmt = "count"):
+    """ Prints the table days x hours, having number of photos in each cell """
+
+    sys.stdout.write("%9s |" % ("hour"))
+    for hour in range(0, 24):
+        if frmt == "count":
+            sys.stdout.write("%4d" % (hour))
+        else:
+            sys.stdout.write(str(hour % 10))
+
+    sys.stdout.write("\n")
+
+    dates_range = range_the_dates(groups, include_empty_days)
+    for date in dates_range:
+        date_str = date.strftime(HISTO_DATE_FORMAT)
+        sys.stdout.write("%9s |" % (date_str))
+
+        for hour in range(0, 24):
+            datetimed = datetime.datetime.combine(date, datetime.time(hour, 0, 0))
+
+            if datetimed in groups.keys():
+                files_count = len(groups[datetimed])
+            else:
+                files_count = 0
+
+            formated = format_number_of_medias(files_count, frmt)
+            sys.stdout.write(formated)
+
+        sys.stdout.write("\n")
 
 def print_files_by_date(groups, include_empty):
     """ Prints just the date->list of files """
@@ -248,9 +339,13 @@ def _run(directories, recurse):
     #print_date_histogram(groups, 2)
     #copy_or_move(groups, 2, "copy", "/tmp/photos-1")
 
-def doit(directory, recurse, action, include_empty = False, quora = None, destination = None):
+def doit(directory, recurse, action, include_empty = False, quora = None, destination = None, display_format = "count"):
     """ Does the actual action with the given directory (possibly recursivelly), with the optional quora and destination) """
-    groups = load_and_group(directory, recurse)
+    groups = None
+    if action == "hours":
+        groups = load_and_group_by_day_and_hour(directory, recurse)
+    else:
+        groups = load_and_group_by_date(directory, recurse)
 
     if action == "histo":
         print_date_histogram(groups, include_empty, quora)
@@ -260,6 +355,9 @@ def doit(directory, recurse, action, include_empty = False, quora = None, destin
 
     if action == "copy" or action == "move":
         copy_or_move(groups, quora, action, destination)
+
+    if action == "hours":
+        print_by_hours(groups, include_empty, display_format)
 
 def check_args(parsed_args):
     """ Validates the provided args """
@@ -295,9 +393,10 @@ parser = argparse.ArgumentParser(
         description = "Classifies (by coping, moving, or just outputting to console) photos or videos (or possibly any other media file, based on its format) by date (day)")
 
 parser.add_argument("-a", "--action", action = "store",
-        choices = ["list", "histo", "copy", "move"], 
+        choices = ["list", "histo", "copy", "move", "hours"], 
         default = "histo",
-        help = "What to do with the result. Just output the date->files mapping, show a histogram (date->number of files) (DEFAULT) or copy or move the files into folder for each day?")
+        help = "What to do with the result. Just output the date->files mapping ('list'), "
+        + "show a histogram (date->number of files) ('histo', DEFAULT), show table day x hour x number of photos ('hours') or copy ('copy') or move ('move') the files into folder for each day?")
 
 parser.add_argument("-r", "--recursive", action = "store_true",
         help = "If set, will look for the photo/video files in the DIRECTORY recursivelly")
@@ -310,6 +409,11 @@ parser.add_argument("-e", "--include-empty", action = "store_true", dest = "incl
 
 parser.add_argument("-d", "--destination", action = "store",
         help = "When -a=copy or -a=move set, specifies where to copy/move the files to (their owning group dirs)")
+
+parser.add_argument("-f", "--display-format", action = "store",
+        choices = ["count", "simple_count", "scale"],
+        default = "scale",
+        help = "When -a=hours, specifies whether to print the number of medias ('count') count as 0-9 (or +) ('simple_count') or character scale ('scale') (DEFAULT)")
 
 parser.add_argument("-v", "--verbose", action = "store_true",
         help = "Enables verbose output")
@@ -324,7 +428,7 @@ if __name__ == "__main__":
     parsed = parser.parse_args()
     check_args(parsed)
     configure_logging(parsed.verbose, parsed.debug)
-    doit(parsed.directory, parsed.recursive, parsed.action, parsed.include_empty, parsed.quora, parsed.destination)
+    doit(parsed.directory, parsed.recursive, parsed.action, parsed.include_empty, parsed.quora, parsed.destination, parsed.display_format)
 
 #    print(date_of_photo("testing-images/detaily-o-zasilce.jpg"))
 #    print(date_of_photo("testing-images/kus-qeerka.jpg"))
@@ -335,4 +439,4 @@ if __name__ == "__main__":
 #    LOGGER.setLevel(logging.DEBUG)
 #    print(run("testing-images", True))
 #    print(parser.parse_args(["-v", "--debug", "--quora", "42", "foobar"]))
- 
+#   print(list(map(lambda n: format_number_of_medias(n, "scale"), range(0,60))))
