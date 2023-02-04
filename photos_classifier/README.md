@@ -39,6 +39,17 @@ kilobity.jpg  photos.jpg
 /tmp/classified-photos/70-01-01-unknown:
 empty-text-file.txt
 ````
+Use `--action=hours` to output days x hours x number of medias table (with ASCII-art scale, expressing number of photos/videos taken/shot at that hour of that day):
+````
+     hour |012345678901234567890123
+ 21-06-14 |                 MI8M!; 
+ 21-06-15 |,.                 .    
+ 21-06-16 |                        
+ 21-06-17 |             .       !  
+ 21-06-18 |       !. i;L!#@I IM!%##
+ 21-06-19 |##!,       ,.     ,     
+
+````
 
 ## Further options
 Use `--verbose` to more verbose output, and `--debug` for full debug logging.
