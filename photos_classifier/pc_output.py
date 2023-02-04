@@ -3,6 +3,7 @@
 ###############################################################################
 
 import pc_input
+import pc_process
 
 import logging
 import datetime
@@ -14,148 +15,220 @@ import shutil
 
 ###############################################################################
 
-""" The date format to be used for the print in the histo output """
-HISTO_DATE_FORMAT="%y-%m-%d"
+""" The general with of the header/label column of both the 'list' and 'table' output. '"""
+LABEL_WIDTH=20
 
-""" The character to be used to output one picture in the histo output """
-HISTO_CHAR="|"
+""" If not compact table view, how wide the each column is to be? """
+NORMAL_COLUMN_WIDTH=4
 
-""" The date format to be used for the group moved/copied photos directory. Can contain %COUNT to render the number of the files in the group """
-GROUP_DIRNAME_DATE_FORMAT="%Y-%m-%d-having-%COUNT-files"
+""" The date formats for the line headers/labels. """
+LINE_LABEL_DATE_FORMATS = { "year": "%Y", "month": "%Y-%m", "week": "%Y-%m-%d +7d", "day": "%a %Y-%m-%d", "hour": "%a %Y-%m-%d %H:xx" }
+
+""" The date formats (optionally containing the %COUNT directive) for the directories names. """
+GROUP_DIRNAME_FORMATS = { 
+    "year":  "%Y_having-%COUNT-files", 
+    "month": "%Y-%m_having-%COUNT-files",
+    "week":  "%Y-%m-%d_having-%COUNT-files",
+    "day":   "%Y-%m-%d_having-%COUNT-files",
+    "hour":  "%Y-%m-%d %H:xx_having-%COUNT-files" }
+
+""" The character to be used to indicate one media in the histo output (bellow output_quora) """
+HISTO_CHAR_IN_QUORA="|"
+
+""" The character to be used to indicate one media in the histo output (over output_quora) """
+HISTO_CHAR_OVER_QUORA="!"
 
 """ The scale of charecters going from 0 files to oo files """
-SCALE_CHARS=" .,;!iILHM8%@#"
+DEFAULT_SCALE_CHARS=" .,;!iILHM8%@#"
 
+""" The logger. """
 LOGGER = logging.getLogger("p_c")
 
 ###############################################################################
 
-def range_the_dates(groups, include_empty):
-    """ Returns the range of dates to iterate over in the given groups.
-    If include_empty is true, returns all dates between the starting and ending.
-    Otherwise just the dates of the groups. """
+def print_groups(groups, groupper, line_format, quora = None, scale = DEFAULT_SCALE_CHARS):
+    """ Prints the groups groupped by the given groupper with the specified line format (and configuration of the format). """
 
-    if include_empty:
-        min_date = min(groups.keys())
-        if (min_date == pc_input.NO_DATE):
-            min_date = sorted(groups.keys())[1]
+    LOGGER.info(f"Printing {len(groups)} groups (in rows) in format {line_format}")
+    LOGGER.debug(f"Printing {len(groups)} groups (in rows) groupped by groupper {groupper}, in format {line_format}, with quora {quora} and scale {scale}")
 
-        max_date = max(groups.keys())
-        ranged = pandas.date_range(min_date, max_date)
-        return map(lambda d: d.date(), ranged)
+    for media_date in groups.keys():
+        media_files = groups[media_date]
+
+        label = compute_line_label(media_date, groupper)
+        files_str = strigify_files(media_files, line_format, quora, scale)
+        
+        line = "%s | %s" % (label, files_str)
+        print(line)
+
+    LOGGER.info(f"Printed  {len(groups)} groups")
+
+
+def compute_line_label(media_date, groupper):
+    """ Computes the label for the given date. May have fixed length no matter the inputs. """
+
+    #TODO if NO_DATE then return something custom
+    line_label_date_format = LINE_LABEL_DATE_FORMATS[groupper]
+    media_date_str = media_date.strftime(line_label_date_format)
+    return media_date_str.rjust(LABEL_WIDTH)
+
+
+def strigify_files(media_files, line_format, quora, scale):
+    """ Constructs the line contents for the given media files in the given format, with the given configuration. """
+
+    if line_format == "list":
+        return str(media_files)
+
+    if line_format == "count":
+        return str(len(media_files))
+
+    if line_format == "count-or-none":
+        return compute_count_or_none(media_files)
+
+    if line_format == "simple-count":
+        return compute_simple_count(media_files)
+    
+    if line_format == "histo":
+        return compute_histo_line(media_files, quora)
+
+    if line_format == "scale":
+        return compute_scale_character(media_files, scale)
+
+    raise ValueError(f"Unsupported line format: {line_format}")
+
+
+def compute_count_or_none(media_files):
+    """ Returns the count of the medias or blank if none """
+
+    if len(media_files) == 0:
+        return " "
     else:
-        dated = map(lambda d: d.date(), groups.keys())
-        return sorted(set(dated))
+        return str(len(media_files))
     
+def compute_simple_count(media_files):
+    """ Converts the given media files into the simple-count, i.e. 1-9 (if exactly that number of medias) or + (if 10-19) or * (20 and more) """
 
-def print_date_histogram(groups, include_empty = None, quora = None):
-    """ Prints the symbolic histogram of date->number of medias """
+    count = len(media_files)
+    if count == 0:
+        return " "
+    if count < 10:
+        return str(count)
+    if count < 20:
+        return "+"
+    else:
+        return "*"
 
-    if quora:
-        quora_bar_str = HISTO_CHAR * quora
-        print("%9s : %s" % ("quora", quora_bar_str))
+def compute_histo_line(media_files, quora):
+    """ Converts the given media files into the histo view of them. """
+
+    count = len(media_files)
+    if not quora:
+        quora = numpy.inf
+
+    if count < quora:
+        return HISTO_CHAR_IN_QUORA * count
+    else:
+        remaining_count = count - quora
+        return (HISTO_CHAR_IN_QUORA * quora) + (HISTO_CHAR_OVER_QUORA * remaining_count)
+
     
-    dates_range = range_the_dates(groups, include_empty)
-    for date in dates_range:
-        date_str = date.strftime(HISTO_DATE_FORMAT)
-        if date in groups.keys():
-            files_count = len(groups[date])
-        else:
-            files_count = 0
+def compute_scale_character(media_files, scale):
+    """ Converts the given media files into the scale character of them. """
 
-        bar_str = HISTO_CHAR * files_count
-        print("%9s : %s" % (date_str, bar_str))
+    files_count = len(media_files)
+    scale_len = len(scale)
 
-def format_number_of_medias(files_count, frmt):
-    """ Formats the given files_count based on the format """
+    if files_count == 0:
+        index = 0
+    else:
+        scale_len_reduced = scale_len + 0
+        files_count_reduced = files_count + 1
+        stretch = 0.75
+        index = int(scale_len_reduced * numpy.tanh(stretch * files_count_reduced / scale_len_reduced))
+   
+    if index >= scale_len:
+        index = scale_len - 1
 
-    if frmt == "count":
-        if files_count:  
-            return "%4d" % (files_count)    
-        else:
-            return "%4s" % (".")
-        
-    if frmt == "simple_count":
-        if files_count == 0:
-            return "."
+    return scale[index];
+
+
+###############################################################################
+
+def print_sub_groups(groups_with_subgroups, groupper, cell_format, compact_view = True, scale = DEFAULT_SCALE_CHARS):
+    """ Prints the given groups with their subgroups, beeing groupped by the given groupper. Outputs in the table with given cell format, possibly compact (columns of with just 1 char) and if in the scale output, by using the given scale. """
+
+    subgroupper = pc_process.SUBGROUP_CHILD_GROUPPER_MAPPING[groupper]
+    LOGGER.info(f"Printing {len(groups_with_subgroups)} groups (in table) in format {cell_format}")
+    LOGGER.debug(f"Printing {len(groups_with_subgroups)} groups with subgroups (in table) groupped by groupper {groupper} and subgroupper {subgroupper}, in format {cell_format}, with compact view {compact_view} and scale {scale}")
+
+    header = "---".rjust(LABEL_WIDTH)
+    sys.stdout.write(header + " | ")
+
+    for column_num in pc_process.SUBGROUP_CHILDREN_RANGE_MAPPING[subgroupper]:
+        row_label = compute_column_label(column_num, groupper, compact_view)
+        sys.stdout.write(row_label)
+    sys.stdout.write(os.linesep)
+
+    for group_date in groups_with_subgroups.keys():
+        subgroup = groups_with_subgroups[group_date]
+        line_label = compute_line_label(group_date, groupper)
+        sys.stdout.write(line_label + " | ")
+
+        for subgroup_date in subgroup.keys():
+            subgroup_files = subgroup[subgroup_date]
+            cell_str = compute_cell(subgroup_files, cell_format, compact_view, scale)
+            sys.stdout.write(cell_str)
+
+        sys.stdout.write(os.linesep)
+
+    LOGGER.info(f"Printed  {len(groups_with_subgroups)} groups")
+
+def compute_column_label(column_num, groupper, compact_view):
+    """ Computes the table label of the column. """
     
-        if files_count > 9:
-            return "+"
-        
-        return str(files_count)
+    if groupper == "week":
+        if compact_view:
+             return ["M", "T", "W", "T", "F", "S", "S"][column_num]
+        else:
+             return ["Mon", "Tue", "Wen", "Thr", "Fri", "Sat", "Sun"][column_num].rjust(NORMAL_COLUMN_WIDTH)
     
-    if frmt == "scale":
-        scale_len = len(SCALE_CHARS)
-        index = int(numpy.floor(scale_len * numpy.tanh(files_count / (1.2 * scale_len))))
-        if index >= scale_len:
-            index = scale_len - 1
-        return SCALE_CHARS[index];
+    if compact_view:
+        return str(column_num % 10)
+    else:
+        return str(column_num).rjust(NORMAL_COLUMN_WIDTH)
 
 
-def print_by_hours(groups, include_empty_days = None, frmt = "count"):
-    """ Prints the table days x hours, having number of photos in each cell """
+def compute_cell(subgroup_files, cell_format, compact_view, scale):
+    """ Computes the actual table cell, based on the files and cell format. """
 
-    sys.stdout.write("%9s |" % ("hour"))
-    for hour in range(0, 24):
-        if frmt == "count":
-            sys.stdout.write("%4d" % (hour))
-        else:
-            sys.stdout.write(str(hour % 10))
+    cell_str = strigify_files(subgroup_files, cell_format, None, scale)
+    if compact_view:
+        return cell_str.rjust(1)[-1]
+    else:
+        return cell_str.rjust(NORMAL_COLUMN_WIDTH)
 
-    sys.stdout.write("\n")
 
-    dates_range = range_the_dates(groups, include_empty_days)
-    for date in dates_range:
-        date_str = date.strftime(HISTO_DATE_FORMAT)
-        sys.stdout.write("%9s |" % (date_str))
+###############################################################################
 
-        for hour in range(0, 24):
-            datetimed = datetime.datetime.combine(date, datetime.time(hour, 0, 0))
+def copy_or_move(groups, groupper, action, destination):
+    """ Copies or moves (based on the action) the files to the corresponding destination sub-dirs """
 
-            if datetimed in groups.keys():
-                files_count = len(groups[datetimed])
-            else:
-                files_count = 0
+    LOGGER.info(f"Copying/Moving ({action}) of {len(groups)} groups to {destination}")
 
-            formated = format_number_of_medias(files_count, frmt)
-            sys.stdout.write(formated)
+    dirname_format = GROUP_DIRNAME_FORMATS[groupper]
 
-        sys.stdout.write("\n")
+    for media_date in groups.keys():
+        media_files = groups[media_date]
+        files_count = len(media_files)
 
-def print_files_by_date(groups, include_empty):
-    """ Prints just the date->list of files """
+        dirname_format_with_count = dirname_format.replace("%COUNT", str(files_count));
+        dirname = media_date.strftime(dirname_format_with_count)
 
-    dates_range = range_the_dates(groups, include_empty)
-    for date in dates_range:
-        date_str = date.strftime(HISTO_DATE_FORMAT)
+        group_dir = os.path.join(destination, dirname)
+        os.makedirs(group_dir)
 
-        if date in groups.keys():
-            files = groups[date]
-        else:
-            files = []
-
-        print(date_str + " -> " + str(files))
-
-def copy_or_move(groups, quora, action, target_owner):
-    """ Copies or moves the medias in groups excessing the quora into the specified target dir """
-
-    for date in groups.keys():
-        group_files = groups[date]
-        files_count = len(group_files) 
-        
-        if quora and files_count < quora:
-            LOGGER.debug(f"The group {date} has less than {quora} medias, skipping")
-             # TODO: if not above the quora, simply ignore?
-        else:
-            LOGGER.debug(f"The group {date} has exceeded the {quora} quora, processing then")
-            dirname = GROUP_DIRNAME_DATE_FORMAT.replace("%COUNT", str(files_count));
-            dirname = date.strftime(dirname)
-
-            group_dir = os.path.join(target_owner, dirname)
-            os.makedirs(group_dir)
-
-            for media_file in group_files:
-                copy_or_move_file(media_file, action, group_dir)
+        for media_file in media_files:
+            copy_or_move_file(media_file, action, group_dir)
 
 def copy_or_move_file(media_file, action, group_dir):
     """ Copies or moves the given file (based on action) into the given target dir) """
@@ -169,5 +242,5 @@ def copy_or_move_file(media_file, action, group_dir):
          shutil.move(media_file, group_dir)
 
     else:
-        raise Exception("Either copy or move is allowed")
+        raise ValueError("Either copy or move is allowed")
 

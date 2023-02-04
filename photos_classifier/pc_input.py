@@ -1,4 +1,4 @@
-""" The imput (load and group) module for the photos_classifier """
+""" The input (load and group) module for the photos_classifier """
 
 
 ###############################################################################
@@ -15,6 +15,7 @@ import datetime
 """ The indicator of no date avaiable (do not use None, causes ton of issues) """
 NO_DATE=datetime.datetime(1970, 1, 1, 0, 0, 0)
 
+""" The logger. """
 LOGGER = logging.getLogger("p_c")
 
 ###############################################################################
@@ -89,29 +90,33 @@ def datetime_of_media(media_file):
     LOGGER.error(f"Media file {media_file} datetime of take/shot obtain failed")
     return NO_DATE
 
-def list_files(directory, recurse):
-    """ Lists all the files in the given directory, possibly recurring """
+def list_files(directories, recurse):
+    """ Lists all the files in the given directories, possibly recurring """
 
     #TODO ensure existence
 
     result = []
-    for (dirpath, dirs, files) in os.walk(directory):
-        LOGGER.debug(f"Loaded files {files} in dir {dirpath}")
-        #TODO filter files by extension
-        files_resolved = [os.path.join(dirpath, f) for f in files]
-        result.extend(files_resolved)
-        if not recurse:
-            break
+    for directory in directories:
+        for (dirpath, dirs, files) in os.walk(directory):
+            LOGGER.debug(f"Loaded files {files} in dir {dirpath}")
+            #TODO filter files by extension
+            files_resolved = [os.path.join(dirpath, f) for f in files]
+            result.extend(files_resolved)
+            if not recurse:
+                break
 
     return result
 
-def load(directory, recurse):
-    """ Loads the medias and their date of taken into file->date dict"""
+def load(directories, recurse):
+    """ Loads the medias and their date of taken into file->datetime dict"""
 
-    files = list_files(directory, recurse)
-    files_count = len(files)
-    LOGGER.info(f"Loaded {files_count} media files")
+    LOGGER.info(f"Loading media files from {directories}")
+    files = list_files(directories, recurse)
+    LOGGER.info(f"Loaded  {len(files)} media files")
 
+    LOGGER.info(f"Loading dates of taken of {len(files)} media files")
     with_datetimes = dict(map( lambda f: (f, datetime_of_media(f)), files))
-    LOGGER.info(f"Loaded dates of taken of the loaded medias")
+    LOGGER.info(f"Loaded  dates of taken of {len(files)} media files")
+
     return with_datetimes
+
