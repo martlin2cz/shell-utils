@@ -119,8 +119,8 @@ def add_common_arguments(parser):
             help = "If set, will look for the photo/video files in the DIRECTORY... recursivelly")
  
     parser.add_argument("directories", metavar = "DIRECTORY", action = "store",
-            nargs = "+",
-            help = "The directories to scan for the photo/video files (either --recursive or not)")
+            nargs = "*",
+            help = "The directories to scan for the photo/video files (either --recursive or not). If none given, YAML produced by 'dump' action (with 'yaml' format) is expected on stdin.")
 
 ###############################################################################
 

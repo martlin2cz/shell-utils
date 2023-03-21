@@ -10,6 +10,9 @@ import os
 import exifread
 import datetime
 
+import sys
+import yaml
+
 ###############################################################################
 
 """ The indicator of no date avaiable (do not use None, causes ton of issues) """
@@ -90,6 +93,9 @@ def datetime_of_media(media_file):
     LOGGER.error(f"Media file {media_file} datetime of take/shot obtain failed")
     return NO_DATE
 
+
+###############################################################################
+
 def list_files(directories, recurse):
     """ Lists all the files in the given directories, possibly recurring """
 
@@ -108,15 +114,35 @@ def list_files(directories, recurse):
     return result
 
 def load(directories, recurse):
-    """ Loads the medias and their date of taken into file->datetime dict"""
+    """ Loads the medias and their date of taken into file->datetime dict,
+        either from the directories (if provided) or from YAML read from stdin (if no dirs).
+    """
+    
+    if len(directories) > 0:
+        LOGGER.info(f"Loading media files from {directories}")
+        files = list_files(directories, recurse)
+        LOGGER.info(f"Loaded  {len(files)} media files")
 
-    LOGGER.info(f"Loading media files from {directories}")
-    files = list_files(directories, recurse)
-    LOGGER.info(f"Loaded  {len(files)} media files")
+        LOGGER.info(f"Loading dates of taken of {len(files)} media files")
+        with_datetimes = dict(map( lambda f: (f, datetime_of_media(f)), files))
+        LOGGER.info(f"Loaded  dates of taken of {len(files)} media files")
 
-    LOGGER.info(f"Loading dates of taken of {len(files)} media files")
-    with_datetimes = dict(map( lambda f: (f, datetime_of_media(f)), files))
-    LOGGER.info(f"Loaded  dates of taken of {len(files)} media files")
+        return with_datetimes
 
-    return with_datetimes
+    else:
+        LOGGER.info(f"Loading media files with dates of taken from YAML on stdin")
+        _input = sys.stdin
+        with_datetimes = load_from_yaml(_input)
+        LOGGER.info(f"Loaded  {len(with_datetimes)} media files with dates of taken")
+
+        return with_datetimes
+
+
+###############################################################################
+
+def load_from_yaml(_input):
+    """ Loads the dict file->datetime from the given yaml file """
+
+    return yaml.load(_input, Loader=yaml.CLoader)
+
 
