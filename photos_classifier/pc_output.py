@@ -12,6 +12,7 @@ import pandas
 import numpy
 import os
 import shutil
+import yaml
 
 ###############################################################################
 
@@ -244,3 +245,26 @@ def copy_or_move_file(media_file, action, group_dir):
     else:
         raise ValueError("Either copy or move is allowed")
 
+
+###############################################################################
+
+def list_files(files):
+    """ Outputs the list of media files with their dates just in a list/two column table """
+
+    LOGGER.info(f"Printing {len(files)} files in the list format")
+
+    for media_date in files.keys():
+        media_file = files[media_date]
+        print(f"{media_file}\t{media_date}")
+
+    LOGGER.info(f"Printed  {len(files)} files in the list format")
+
+def yaml_files(files):
+    """ Outputs the list of media files in the YAML format """
+
+    LOGGER.info(f"Printing {len(files)} files in the YAML format")
+
+    yamled = yaml.dump(files)
+    print(yamled)
+
+    LOGGER.info(f"Printed  {len(files)} files in the YAML format")
