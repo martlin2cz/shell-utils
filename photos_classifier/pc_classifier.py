@@ -57,5 +57,18 @@ def copy_or_move_to_groups(directories, recurse, groupper, action, quora, destin
     groups = pc_process.process(files, groupper, False, quora, False)
     pc_output.copy_or_move(groups, groupper, action, destination)
 
+def dump_medias(directories, recurse, output_format):
+    """ Loads (optionally recursivelly) the given directories,
+        and dumps them in the specified format
+        (either in the YAML or simply lists) """
+
+    files = pc_input.load(directories, recurse)
+    
+    if output_format == "list":
+        pc_output.list_files(files)
+    elif output_format == "yaml":
+        pc_output.yaml_files(files)
+    else:
+        raise ValueError(f"Unsupported format {output_format}")
 
 ###############################################################################
