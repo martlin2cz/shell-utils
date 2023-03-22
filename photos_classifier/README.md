@@ -150,4 +150,20 @@ Use `--verbose` to more verbose output, and `--debug` for full debug logging.
 
 Use standart `--help` or `-h` for full help of the whole script or any of its actions.
 
+## Load, dump, import, reuse
+To avoid unnecessary loading all the medias while fiddeling with the parameters, you can do the load of the medias and their dates of taken/shot (which usually takes some time) and store that into a file. Nextly, you can use that file instead of loading all the medias all over again:
+````
+$ ./classify.py dump --output-format=yaml --recursive testing-images/ > /tmp/yamled.yaml
+$ ./classify.py table --groupper=day -f=count < /tmp/yamled.yaml
+$ ./classify.py table --groupper=hour -f=count < /tmp/yamled.yaml
+$ ./classify.py table --groupper=hour -f=scale < /tmp/yamled.yaml
+$ ./classify.py table --groupper=hour -f=scale -q=1 < /tmp/yamled.yaml
+````
+(Use _dump_ action with `--output-format=yaml` to output the YAML file, and then run without any directories to load the YAML from stdin.)
+You could even do this:
+````
+$ ./classify.py dump --output-format=yaml --recursive testing-images/ | ./classify.py table --groupper=day -f=count
+````
+
+
 

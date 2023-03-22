@@ -1,0 +1,11 @@
+testing-images/dablovy-prdele.jpg: 2021-10-30 13:35:16
+testing-images/detaily-o-zasilce.jpg: 2021-12-15 22:06:39
+testing-images/empty-text-file.txt: &id001 1970-01-01 00:00:00
+testing-images/kilobity.jpg: 2022-06-19 11:32:52
+testing-images/kus-qeerka.jpg: 2022-02-16 22:24:40
+testing-images/photos.jpg: 2022-06-19 11:33:55
+testing-images/tmp.yaml: *id001
+testing-images/videos/video-edit.mp4: *id001
+testing-images/yamled.yaml: *id001
+testing-images/zasilku-jsme-dorucili.jpg: 2021-12-15 22:06:46
+
