@@ -42,6 +42,9 @@ HISTO_CHAR_OVER_QUORA="!"
 """ The scale of charecters going from 0 files to oo files """
 DEFAULT_SCALE_CHARS=" .,;!iILHM8%@#"
 
+""" The label for NO_DATE (shorter than LABEL_WIDTH, please) """
+NO_DATE_LABEL="unknown"
+
 """ The logger. """
 LOGGER = logging.getLogger("p_c")
 
@@ -68,7 +71,9 @@ def print_groups(groups, groupper, line_format, quora = None, scale = DEFAULT_SC
 def compute_line_label(media_date, groupper):
     """ Computes the label for the given date. May have fixed length no matter the inputs. """
 
-    #TODO if NO_DATE then return something custom
+    if media_date == pc_input.NO_DATE:
+        return NO_DATE_LABEL.rjust(LABEL_WIDTH)
+
     line_label_date_format = LINE_LABEL_DATE_FORMATS[groupper]
     media_date_str = media_date.strftime(line_label_date_format)
     return media_date_str.rjust(LABEL_WIDTH)
