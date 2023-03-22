@@ -38,6 +38,9 @@ def doit(parsed):
     if action == "move":
         pc_classifier.copy_or_move_to_groups(parsed.directories, parsed.recurse, parsed.groupper, "move", parsed.quora, parsed.destination)
         
+    if action == "dump":
+        pc_classifier.dump_medias(parsed.directories, parsed.recurse, parsed.output_format)
+        
 
 ###############################################################################
 

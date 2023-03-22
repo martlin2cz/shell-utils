@@ -42,6 +42,7 @@ def construct_parser():
     construct_table_sub_parse(subparsers)
     construct_copy_or_move_sub_parse(subparsers, "copy")
     construct_copy_or_move_sub_parse(subparsers, "move")
+    construct_dump_sub_parse(subparsers)
 
     return parser
 
@@ -104,23 +105,35 @@ def construct_copy_or_move_sub_parse(subparsers, action):
 
 
 
-def add_common_arguments(parser):
+def construct_dump_sub_parse(subparsers):
+    parser = subparsers.add_parser("dump", help = "Just outputs the loaded medias and their dates of taken/shot in the specified format.")
+
+    parser.add_argument("-f", "--output-format", action = "store", dest = "output_format",
+            choices = ["yaml", "list"],
+            default = "list",
+            help = "Specifies the format of how to output the collected medias and their date of taken/shot. Value 'list' just literally lists the medias (the file path + date separated by tab), 'yaml' ouputs the data in the YAML file format (to be then back importable). Default is 'list'.")
+
+    add_common_arguments(parser, False)
+
+
+def add_common_arguments(parser, with_groupper = True):
     parser.add_argument("-v", "--verbose", action = "store_true",
             help = "Enables verbose output")
 
     parser.add_argument("-D", "--debug", action = "store_true",
             help = "Enables full debug output")
 
-    parser.add_argument("-g", "--groupper", action = "store", default="day",
-            choices = ["year", "month", "week", "day", "hour"],
-            help = "Group the medias by what? (If in the table output, specifies the rows groupper, column groupper is automatically the lower one). The default is 'day'.")
+    if with_groupper:
+        parser.add_argument("-g", "--groupper", action = "store", default="day",
+                choices = ["year", "month", "week", "day", "hour"],
+                help = "Group the medias by what? (If in the table output, specifies the rows groupper, column groupper is automatically the lower one). The default is 'day'.")
     
     parser.add_argument("-r", "--recursive", action = "store_true", dest = "recurse",
             help = "If set, will look for the photo/video files in the DIRECTORY... recursivelly")
  
     parser.add_argument("directories", metavar = "DIRECTORY", action = "store",
-            nargs = "+",
-            help = "The directories to scan for the photo/video files (either --recursive or not)")
+            nargs = "*",
+            help = "The directories to scan for the photo/video files (either --recursive or not). If none given, YAML produced by 'dump' action (with 'yaml' format) is expected on stdin.")
 
 ###############################################################################
 
