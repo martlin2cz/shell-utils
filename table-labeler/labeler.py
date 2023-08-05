@@ -67,8 +67,11 @@ def load_table(filename):
     return table
 
 def save_table(table, filename):
-    pandas.save_csv(filename, delimiter="\t")
-
+    LOGGER.info("Saving output table to file %s", filename)
+    
+    table.to_csv(filename, sep=";")
+    LOGGER.info("Saved output table.")
+    
 ###############################################################################
 
 def check_and_apply(rules, table, column_name, override):
@@ -84,6 +87,7 @@ def apply(rules, table, column_name, override):
     for rule_index, rule in enumerate(rules):
         
         values = [compue_label_column_value(rule_index, rule, column_name, override, row_index, row) for row_index, row in table.iterrows() ]
+        table[column_name] = values
 
 def compue_label_column_value(rule_index, rule, column_name, override, row_index, row):
     LOGGER.debug("Computing new label of row %d: %s for rule %d:  %s", row_index, dict(row), rule_index, rule)

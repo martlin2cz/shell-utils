@@ -1,4 +1,4 @@
 label	Label	if	column-1	operator-1	value-1
-label	Foo	if	Name	equal	foo
-label	Bar	if	Number	<	100
+label	FooIsPepa	if	Name	equal	pepa
+label	BarLessThan100	if	Number	<	100
 
