@@ -1,5 +1,6 @@
-"Key";"Value"
-"karel";42
-"franta";99
-"pepa";222
-
+"Name";"Number";"Flag"
+"karel";42;"YES"
+"franta";99;"YES"
+"pepa";222;"NO"
+"jirka";30;"YES"
+"jitka";45;"NO"
