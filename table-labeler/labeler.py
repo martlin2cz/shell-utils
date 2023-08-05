@@ -74,22 +74,22 @@ def save_table(table, filename):
     
 ###############################################################################
 
-def check_and_apply(rules, table, column_name, override):
+def check_and_apply(rules, table, column_name, allow_override):
     if column_name not in table.columns:
         position = len(table.columns)
 
         LOGGER.info("Creating the new column of name: %s", column_name)
         table.insert(position, column_name, NO_LABEL)
 
-    apply(rules, table, column_name, override)
+    apply(rules, table, column_name, allow_override)
 
-def apply(rules, table, column_name, override):
+def apply(rules, table, column_name, allow_override):
     for rule_index, rule in enumerate(rules):
         
-        values = [compue_label_column_value(rule_index, rule, column_name, override, row_index, row) for row_index, row in table.iterrows() ]
+        values = [compue_label_column_value(rule_index, rule, column_name, allow_override, row_index, row) for row_index, row in table.iterrows() ]
         table[column_name] = values
 
-def compue_label_column_value(rule_index, rule, column_name, override, row_index, row):
+def compue_label_column_value(rule_index, rule, column_name, allow_override, row_index, row):
     LOGGER.debug("Computing new label of row %d: %s for rule %d:  %s", row_index, dict(row), rule_index, rule)
  
     try:
@@ -103,11 +103,11 @@ def compue_label_column_value(rule_index, rule, column_name, override, row_index
             return current_value
         else:
             if already_has:
-                if override:
-                    LOGGER.debug("Keeping: row %d: %s matches rule %d condition %s, but already has a value and override is off", row_index, dict(row), rule_index, rule.condition)
+                if allow_override:
+                    LOGGER.debug("Keeping: row %d: %s matches rule %d condition %s, but already has a value and allow_override is off", row_index, dict(row), rule_index, rule.condition)
                     return current_value
                 else:
-                    LOGGER.debug("Replacing: row %d: %s matches rule %d condition %s and already has a value, but override is on", row_index, dict(row), rule_index, rule.condition)
+                    LOGGER.debug("Replacing: row %d: %s matches rule %d condition %s and already has a value, but allow_override is on", row_index, dict(row), rule_index, rule.condition)
                     return new_value
             else:
                 LOGGER.debug("Setting: row %d: %s matches rule %d condition %s and hasnť a value yet", row_index, dict(row), rule_index, rule.condition)
@@ -146,11 +146,11 @@ def matches(actual_value, operator, value):
 ###############################################################################
 
 
-def run(infile, rules_file, column_name, override, dry_run, outfile):
+def run(infile, rules_file, column_name, allow_override, dry_run, outfile):
     rules = load_rules(rules_file)
     table = load_table(infile)
 
-    check_and_apply(rules, table, column_name, override)
+    check_and_apply(rules, table, column_name, allow_override)
 
     if not dry_run:
         save_table(table, outfile)
