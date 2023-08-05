@@ -1,5 +1,7 @@
 import logging
 import pandas
+import typing
+
 from dataclasses import dataclass
 
 ###############################################################################
@@ -10,10 +12,17 @@ LOGGER = logging.getLogger("labeler")
 ###############################################################################
 
 @dataclass(frozen = True)
+class Condition:
+    column: str
+    operator: str
+    value: typing.Any
+
+
+@dataclass(frozen = True)
 class Rule:
     index: int
     label: str
-    #TODO conditions
+    condition: Condition
 
 def load_rules(filename):
     rules_csv = pandas.read_csv(filename, delimiter="\t")
@@ -26,8 +35,16 @@ def load_rule(index, entry):
     LOGGER.debug("Parsing rule %d: %s", index, entry)
     label = entry["Label"]
 
+    condition = load_condition(entry, 1)
 
-    return Rule(index, label)
+    return Rule(index, label, condition)
+
+def load_condition(entry, condition_index):
+    column = entry[f"column-{condition_index}"]
+    operator = entry[f"operator-{condition_index}"]
+    value = entry[f"value-{condition_index}"]
+
+    return Condition(column, operator, value)
 
 ###############################################################################
 
