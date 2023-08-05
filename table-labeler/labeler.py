@@ -74,58 +74,101 @@ def save_table(table, filename):
     
 ###############################################################################
 
-def check_and_apply(rules, table, column_name, allow_override):
+def check_and_apply(rules, table, column_name, allow_override, rewrite_strategy):
     if column_name not in table.columns:
         position = len(table.columns)
 
         LOGGER.info("Creating the new column of name: %s", column_name)
         table.insert(position, column_name, NO_LABEL)
 
-    apply(rules, table, column_name, allow_override)
+    apply(rules, table, column_name, allow_override, rewrite_strategy)
 
-def apply(rules, table, column_name, allow_override):
-    for rule_index, rule in enumerate(rules):
+def apply(rules, table, column_name, allow_override, rewrite_strategy):
+
+    values = []
+    for row_index, row in table.iterrows():
+        original_label = row[column_name]
+        current_label = None
+        last_applicable_rule = None
+        new_label = None
         
-        values = [compue_label_column_value(rule_index, rule, column_name, allow_override, row_index, row) for row_index, row in table.iterrows() ]
-        table[column_name] = values
+        LOGGER.debug("Computing label for row %d: %s", row_index, dict(row))
+        for rule_index, rule in enumerate(rules):
+            applicable = is_applicable(rule, rewrite_strategy, allow_override, row, original_label, current_label)
 
-def compue_label_column_value(rule_index, rule, column_name, allow_override, row_index, row):
-    LOGGER.debug("Computing new label of row %d: %s for rule %d:  %s", row_index, dict(row), rule_index, rule)
- 
-    try:
-        matching = matches_condition(rule.condition, row, rule_index, row_index)
-        current_value = row[column_name]
-        already_has = len(current_value) > 0
-        new_value = rule.label
-
-        if not matching:
-            LOGGER.debug("Ignoring: row %d: %s doesn't match rule %d condition %s", row_index, dict(row), rule_index, rule.condition)
-            return current_value
-        else:
-            if already_has:
-                if allow_override:
-                    LOGGER.debug("Keeping: row %d: %s matches rule %d condition %s, but already has a value and allow_override is off", row_index, dict(row), rule_index, rule.condition)
-                    return current_value
-                else:
-                    LOGGER.debug("Replacing: row %d: %s matches rule %d condition %s and already has a value, but allow_override is on", row_index, dict(row), rule_index, rule.condition)
-                    return new_value
+            if applicable:
+                new_label = rule.label
+                LOGGER.debug("Computed new label by rule %d, %s", rule_index, rule)
             else:
-                LOGGER.debug("Setting: row %d: %s matches rule %d condition %s and hasnť a value yet", row_index, dict(row), rule_index, rule.condition)
-                return new_value
+                new_label = original_label
+
+        if new_label is original_label:
+            LOGGER.info("No matching rule found for row %d: %s", row_index, dict(row))
+            new_label = ""
+        else:
+            LOGGER.info("Label for row %d computd as %s", row_index, new_label)
+    
+        values.append(new_label)
+        current_label = new_label
+
+    table[column_name] = values
+
+def is_applicable(rule, rewrite_strategy, allow_override, row, original_label, current_label):
+    try:
+        matching = matches_condition(rule.condition, row)
+        already_had_label = len(original_label) > 0
+        already_has_label = current_label != None
+
+        # is it matching?
+        if not matching:
+            LOGGER.debug("Ignore:  row doesn't match rule condition")
+            return False
+        
+        # it's matching, does it already had label?
+        if not already_had_label:
+            return check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label)
+       
+        # it's matching and already HAD a label, is override allowed?
+        if allow_override:
+            return check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label)
+
+        # it's matching, already HAD a label but overides are not allowed
+        LOGGER.debug("Replace: row matches rule condition and already has a value, but allow_override is on")
+        return False
 
     except Exception as ex:
-        LOGGER.error(f"Row %d %s label computation failed: %s", row_index, dict(row), ex)
+        LOGGER.error("Fail:     cannot indentify whether it's allowed to set label or not: %s", ex)
 
+def check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label):
+    if not already_has_label: 
+        LOGGER.debug("Set:     row matches rule conditions and had not and has not a label yet");
+        return True
 
-def matches_condition(condition, row, rule_index, row_index):
+    # it already has a label, let the strategy decide what to do
+    if rewrite_strategy == "first":
+         LOGGER.debug("Skip:    row matches rule conditions, has already label and the rewrite is set to first");
+         return False
+
+    if rewrite_strategy == "last":
+         LOGGER.debug("Rewrite: row matches rule conditions, has already label and the rewrite is set to last");
+         return True
+
+    if rewrite_strategy == "fail":
+         LOGGER.debug("Fail:    row matches rule conditions, has already label and the rewrite is set to fail");
+         raise ValueError("The row already has a label added by some of the previous rules.");
+
+    raise ValueError("Uknown rewrite_strategy: " + rewrite_strategy)
+    
+
+def matches_condition(condition, row):
     try:
         if condition.column not in row:
-            raise ValueError(f"The row {row_index} doesn't have {condition.column} column") 
+            raise ValueError(f"The row doesn't have {condition.column} column") 
         column_value = row[condition.column]
     
         return matches(column_value, condition.operator, condition.value)
     except Exception as ex:
-        LOGGER.error("Rule %d condition %s check of row %d failed: %s", rule_index, condition, row_index, ex)
+        LOGGER.error("Rule condition check of row failed: %s", ex)
         return False
 
 def matches(actual_value, operator, value):
@@ -146,11 +189,11 @@ def matches(actual_value, operator, value):
 ###############################################################################
 
 
-def run(infile, rules_file, column_name, allow_override, dry_run, outfile):
+def run(infile, rules_file, column_name, allow_override, rewrite_strategy, dry_run, outfile):
     rules = load_rules(rules_file)
     table = load_table(infile)
 
-    check_and_apply(rules, table, column_name, allow_override)
+    check_and_apply(rules, table, column_name, allow_override, rewrite_strategy)
 
     if not dry_run:
         save_table(table, outfile)

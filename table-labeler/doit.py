@@ -29,7 +29,13 @@ def construct_parser():
             help = "The name of the new label column")
 
     parser.add_argument("-o", "--override", action = "store_true",
-            help = "Allow overriding existing (when record already has a label)")
+            dest = "allow_override",
+            help = "Allow overriding existing (when record already has a label)?")
+
+    parser.add_argument("-r", "--rewrite", action = "store",
+            dest = "rewrite_strategy", choices = ["first", "last", "fail"], default = "last",
+            help = "If multiple rules matches, pick label of first matching rule, last one, or none (first actually) and report error?")
+
 
     parser.add_argument("-dry", "--dry-run", action = "store_true",
             dest = "dry_run",
@@ -77,12 +83,13 @@ if __name__ == "__main__":
     LOGGER.debug("ARGS: %s", parsed)
 
     column_name = parsed.column_name
-    override = parsed.override
+    allow_override = parsed.allow_override
+    rewrite_strategy = parsed.rewrite_strategy
     dry_run = parsed.dry_run
     infile = parsed.infile[0]
     rules_file = parsed.rules_file[0]
     outfile = parsed.outfile[0]
 
-    labeler.run(infile, rules_file, column_name, override, dry_run, outfile)
+    labeler.run(infile, rules_file, column_name, allow_override, rewrite_strategy, dry_run, outfile)
 
 
