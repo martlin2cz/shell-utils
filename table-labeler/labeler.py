@@ -94,7 +94,11 @@ def apply(rules, table, column_name, allow_override, rewrite_strategy):
         
         LOGGER.debug("Computing label for row %d: %s", row_index, dict(row))
         for rule_index, rule in enumerate(rules):
-            applicable = is_applicable(rule, rewrite_strategy, allow_override, row, original_label, current_label)
+            resolution = compute_resolution(rule, rewrite_strategy, allow_override, row, original_label, current_label)
+            LOGGER.debug(resolution)
+            #TODO log error instead of debug if error
+
+            applicable = resolution in [SET_NEW_LABEL, REPLACE_BY_NEW_LABEL, OVERRIDE_PREVIOUS_RULE]
 
             if applicable:
                 new_label = rule.label
@@ -113,7 +117,17 @@ def apply(rules, table, column_name, allow_override, rewrite_strategy):
 
     table[column_name] = values
 
-def is_applicable(rule, rewrite_strategy, allow_override, row, original_label, current_label):
+ 
+NOT_MATCHING                      = "Not matching, skipping"
+SET_NEW_LABEL                     = "Setting new label"
+IGNORE_ALREADY_HAD_LABEL          = "Not setting new label because already had one"
+REPLACE_BY_NEW_LABEL              = "Replacing existing label by new one"
+CONDITION_CHECK_FAILED            = "Condition evaluation failed"
+SKIP_ANOTHER_RULE_ALREADY_APPLIED = "Śkipping because another rule already matched"
+OVERRIDE_PREVIOUS_RULE            = "Replacing label from previous matched rule"
+FAIL_ANOTHER_RULE_ALREADY_APPLIED = "Failing, some previous rule already applied the label, this would be another."
+
+def compute_resolution(rule, rewrite_strategy, allow_override, row, original_label, current_label):
     try:
         matching = matches_condition(rule.condition, row)
         already_had_label = len(original_label) > 0
@@ -122,40 +136,46 @@ def is_applicable(rule, rewrite_strategy, allow_override, row, original_label, c
         # is it matching?
         if not matching:
             LOGGER.debug("Ignore:  row doesn't match rule condition")
-            return False
+            return NOT_MATCHING
         
-        # it's matching, does it already had label?
-        if not already_had_label:
-            return check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label)
-       
-        # it's matching and already HAD a label, is override allowed?
-        if allow_override:
-            return check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label)
-
-        # it's matching, already HAD a label but overides are not allowed
-        LOGGER.debug("Replace: row matches rule condition and already has a value, but allow_override is on")
-        return False
+        # it's matching, does it already HAD label?
+        if already_had_label:
+            # it had label, can we override it?
+            if allow_override:
+                # we can override, but didn't another rule already do it?
+                return check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label, REPLACE_BY_NEW_LABEL)
+            else:
+                # override is denined
+                return IGNORE_ALREADY_HAD_LABEL
+        else:
+            # it doesn't had label yet, we can add one, but didn't another rule already do it?
+            return check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label, SET_NEW_LABEL)
 
     except Exception as ex:
         LOGGER.error("Fail:     cannot indentify whether it's allowed to set label or not: %s", ex)
+        return CONDITION_CHECK_FAILED
 
-def check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label):
+def check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label, resolution_if_ok):
+    # did some of the previous rules compute the label?
     if not already_has_label: 
         LOGGER.debug("Set:     row matches rule conditions and had not and has not a label yet");
-        return True
+        return resolution_if_ok
 
-    # it already has a label, let the strategy decide what to do
+    # it already has a label, should we keep the current one?
     if rewrite_strategy == "first":
          LOGGER.debug("Skip:    row matches rule conditions, has already label and the rewrite is set to first");
-         return False
+         return SKIP_ANOTHER_RULE_ALREADY_APPLIED
 
+    # or should we override it by this one?
     if rewrite_strategy == "last":
          LOGGER.debug("Rewrite: row matches rule conditions, has already label and the rewrite is set to last");
-         return True
+         return OVERRIDE_PREVIOUS_RULE
 
+    # or should we use none of this and just report failure?
     if rewrite_strategy == "fail":
          LOGGER.debug("Fail:    row matches rule conditions, has already label and the rewrite is set to fail");
-         raise ValueError("The row already has a label added by some of the previous rules.");
+         return FAIL_ANOTHER_RULE_ALREADY_APPLIED
+#         raise ValueError("The row already has a label added by some of the previous rules.");
 
     raise ValueError("Uknown rewrite_strategy: " + rewrite_strategy)
     
