@@ -3,6 +3,7 @@
 import logging
 import argparse
 import os
+import pathlib
 
 import labeler
 
@@ -51,7 +52,7 @@ def construct_parser():
             help = "The CSV files with the rules.")
 
     parser.add_argument("outfile", metavar = "OUTFILE", action = "store", nargs = 1,
-            type=argparse.FileType('w'),
+            type= pathlib.Path,
             help = "The output CSV file.")
 
     return parser

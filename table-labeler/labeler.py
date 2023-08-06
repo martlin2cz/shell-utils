@@ -85,57 +85,60 @@ def check_and_apply(rules, table, column_name, allow_override, rewrite_strategy)
 
 def apply(rules, table, column_name, allow_override, rewrite_strategy):
 
+    new_labels_count = 0
+
     values = []
     for row_index, row in table.iterrows():
         original_label = row[column_name]
         current_label = None
-        last_applicable_rule = None
-        new_label = None
+        the_chosen_rule = None
         
-        LOGGER.debug("Computing label for row %d: %s", row_index, dict(row))
+        LOGGER.debug(">>> Computing label for row %d: %s", row_index, dict(row))
         for rule_index, rule in enumerate(rules):
             resolution = compute_resolution(rule, rewrite_strategy, allow_override, row, original_label, current_label)
-            LOGGER.debug(resolution)
+            LOGGER.debug("Rule %d: %s", rule_index, resolution)
             #TODO log error instead of debug if error
 
             applicable = resolution in [SET_NEW_LABEL, REPLACE_BY_NEW_LABEL, OVERRIDE_PREVIOUS_RULE]
 
             if applicable:
-                new_label = rule.label
-                LOGGER.debug("Computed new label by rule %d, %s", rule_index, rule)
-            else:
-                new_label = original_label
+                the_chosen_rule = rule
+                current_label = rule.label
 
-        if new_label is original_label:
-            LOGGER.info("No matching rule found for row %d: %s", row_index, dict(row))
-            new_label = ""
+        new_label = None
+        if the_chosen_rule:
+            new_label = the_chosen_rule.label
+            LOGGER.debug("<<< Computed new label by rule %d, %s", rule_index, rule)
+            LOGGER.info("Label for row %d computed as %s", row_index, new_label)
+            new_labels_count = new_labels_count + 1
         else:
-            LOGGER.info("Label for row %d computd as %s", row_index, new_label)
-    
+            new_label = ""
+            LOGGER.info("No matching rule found for row %d: %s", row_index, dict(row))
+                    
         values.append(new_label)
         current_label = new_label
 
     table[column_name] = values
+    LOGGER.info("Labels computed. %d out of %d rows got new label computed", new_labels_count, len(values))
 
  
-NOT_MATCHING                      = "Not matching, skipping"
-SET_NEW_LABEL                     = "Setting new label"
-IGNORE_ALREADY_HAD_LABEL          = "Not setting new label because already had one"
-REPLACE_BY_NEW_LABEL              = "Replacing existing label by new one"
-CONDITION_CHECK_FAILED            = "Condition evaluation failed"
-SKIP_ANOTHER_RULE_ALREADY_APPLIED = "Śkipping because another rule already matched"
-OVERRIDE_PREVIOUS_RULE            = "Replacing label from previous matched rule"
-FAIL_ANOTHER_RULE_ALREADY_APPLIED = "Failing, some previous rule already applied the label, this would be another."
+NOT_MATCHING                      = "Not matching, SKIPPING"
+SET_NEW_LABEL                     = "Matching, SETTING new label"
+IGNORE_ALREADY_HAD_LABEL          = "Matching, but NOT SETTING new label because already had one"
+REPLACE_BY_NEW_LABEL              = "Mathing  and REPLACING existing label by new one"
+CONDITION_CHECK_FAILED            = "Condition evaluation FAILED, skipping"
+SKIP_ANOTHER_RULE_ALREADY_APPLIED = "Matching, but SKIPPING because another rule already matched"
+OVERRIDE_PREVIOUS_RULE            = "Matching  and REPLACING label from previous matched rule"
+FAIL_ANOTHER_RULE_ALREADY_APPLIED = "Matching, and FAILING, some previous rule already applied the label, this would be another."
 
 def compute_resolution(rule, rewrite_strategy, allow_override, row, original_label, current_label):
     try:
         matching = matches_condition(rule.condition, row)
-        already_had_label = len(original_label) > 0
-        already_has_label = current_label != None
+        already_had_label = bool(original_label)
+        already_has_label = bool(current_label)
 
         # is it matching?
         if not matching:
-            LOGGER.debug("Ignore:  row doesn't match rule condition")
             return NOT_MATCHING
         
         # it's matching, does it already HAD label?
@@ -158,22 +161,19 @@ def compute_resolution(rule, rewrite_strategy, allow_override, row, original_lab
 def check_current_label(rule, rewrite_strategy, allow_override, row, already_has_label, resolution_if_ok):
     # did some of the previous rules compute the label?
     if not already_has_label: 
-        LOGGER.debug("Set:     row matches rule conditions and had not and has not a label yet");
         return resolution_if_ok
 
     # it already has a label, should we keep the current one?
     if rewrite_strategy == "first":
-         LOGGER.debug("Skip:    row matches rule conditions, has already label and the rewrite is set to first");
          return SKIP_ANOTHER_RULE_ALREADY_APPLIED
 
     # or should we override it by this one?
     if rewrite_strategy == "last":
-         LOGGER.debug("Rewrite: row matches rule conditions, has already label and the rewrite is set to last");
          return OVERRIDE_PREVIOUS_RULE
 
     # or should we use none of this and just report failure?
     if rewrite_strategy == "fail":
-         LOGGER.debug("Fail:    row matches rule conditions, has already label and the rewrite is set to fail");
+         #LOGGER.debug("Fail:    row matches rule conditions, has already label and the rewrite is set to fail");
          return FAIL_ANOTHER_RULE_ALREADY_APPLIED
 #         raise ValueError("The row already has a label added by some of the previous rules.");
 
