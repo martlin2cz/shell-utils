@@ -48,7 +48,10 @@ def load_rule(index, entry):
 
     condition = load_condition(entry, 1)
 
-    return Rule(index, label, condition)
+    rule = Rule(index, label, condition)
+    LOGGER.debug("Parsed rule %d: %s", index, rule)
+    return rule
+
 
 def load_condition(entry, condition_index):
     column = entry[f"column-{condition_index}"]
@@ -181,6 +184,8 @@ def check_current_label(rule, rewrite_strategy, allow_override, row, already_has
     
 
 def matches_condition(condition, row):
+    """ Checks whether the given row matches the given condition. """
+
     try:
         if condition.column not in row:
             raise ValueError(f"The row doesn't have {condition.column} column") 
@@ -192,8 +197,19 @@ def matches_condition(condition, row):
         return False
 
 def matches(actual_value, operator, value):
+    """ Check whether the given actual_value of the condition column of the row 
+        matches the condition operator and value. """
+
     if operator in ["=", "==", "is", "equal"]:
         return (actual_value == value)
+
+    if operator in ["contains"]:
+        return (value in actual_value)
+
+    if operator in ["contains trimmed"]:
+        return (value.strip() in actual_value.strip())
+
+
 
     if operator in ["<"]:
         return (float(actual_value) < float(value))
