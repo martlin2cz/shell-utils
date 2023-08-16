@@ -16,7 +16,17 @@ def construct_parser():
     """ Constructs the argparser """
 
     parser = argparse.ArgumentParser(
-            description = "Adds Label column to the given CSV file, filling its value based on the rules file.")
+            description = """
+            Adds Label column to the given CSV file, filling its value based on the rules file.
+
+            The rules file is CSV file in the format (header row nescessary, columns separated by Tabs):
+                label   Label               if  column-1            operator-1  value-1
+                ================================================================================
+                label   [LABEL_TO_APPLY]    if  [COLUMN_TO_MATCH]   [OPERATOR]  [VALUE_TO_CHECK]
+                label   SampleNegativeLabel if  SampleNumberCol     <           0
+                label   SampleFooNameLabel  if  SampleNameCol       equals    foo
+            """,
+            formatter_class = argparse.RawTextHelpFormatter)
 
     parser.add_argument("-v", "--verbose", action = "store_true",
             help = "Enables verbose output")
@@ -27,7 +37,7 @@ def construct_parser():
 
     parser.add_argument("-c", "--column-name", action = "store", type = str,
             default = "Label", dest = "column_name",
-            help = "The name of the new label column")
+            help = "The name of the new label column (defaults to 'Label'")
 
     parser.add_argument("-o", "--override", action = "store_true",
             dest = "allow_override",
@@ -62,9 +72,8 @@ def construct_parser():
 def configure_logging(verbose, debug):
     """ Sets the logger configuration based on the command line flags """
 
-    if not (verbose or debug):
-        return
-    
+    new_level = logging.ERROR
+
     if verbose:
         new_level = logging.INFO
 
