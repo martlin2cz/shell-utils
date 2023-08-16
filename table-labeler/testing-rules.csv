@@ -2,7 +2,7 @@ label	Label	if	column-1	operator-1	value-1
 label	FooIsPepa	if	Name	equal	pepa
 label	BarLessThan100	if	Number	>	100
 apply	BarPositive	when	Number	>	0
-label	Whatever	if	Name	<	42
+#label	Whatever	if	Name	<	42
 #label	Whatever	is	commented	out
 do	TheInvalidRule	if matches	something	happens
 label	Nothing	if

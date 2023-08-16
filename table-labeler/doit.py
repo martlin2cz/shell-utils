@@ -25,6 +25,7 @@ def construct_parser():
                 label   [LABEL_TO_APPLY]    if  [COLUMN_TO_MATCH]   [OPERATOR]  [VALUE_TO_CHECK]
                 label   SampleNegativeLabel if  SampleNumberCol     <           0
                 label   SampleFooNameLabel  if  SampleNameCol       equals    foo
+                #this   is comment of the file
             """,
             formatter_class = argparse.RawTextHelpFormatter)
 
