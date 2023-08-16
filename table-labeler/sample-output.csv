@@ -1,0 +1,7 @@
+;Name;Number;Flag;Label
+0;karel;42;YES;BarPositive
+1;franta;99;YES;BarPositive
+2;pepa;222;NO;FooIsPepa
+3;jirka;30;YES;BarPositive
+4;jitka;45;NO;BarPositive
+5;jimmy;-100;I'M REBEL;
