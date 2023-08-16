@@ -1,5 +1,6 @@
 import logging
 import pandas
+import numpy
 import typing
 
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ from dataclasses import dataclass
 """ The logger. """
 LOGGER = logging.getLogger("labeler")
 
+""" The character which indicates comment in the rules file """
+RULE_COMMENT_CHAR = "#"
 
 """ The value used when the rule doesn't match """
 NO_LABEL = ""
@@ -32,33 +35,61 @@ class Rule:
 def load_rules(filename):
     LOGGER.info("Loading rules from file %s", filename)
     rules_csv = pandas.read_csv(filename, delimiter="\t")
-    #TODO check header
 
     rules_csv_rows = rules_csv.iterrows()
-    rules_list = [ load_rule(i, e) for i,e in rules_csv_rows ]
+    rules_list_with_nones = [ load_rule(i, e) for i,e in rules_csv_rows ]
+    rules_list = [ r for r in rules_list_with_nones if r is not None ]
 
     LOGGER.info("Loaded in total %d rules", len(rules_list))
     return rules_list
 
 def load_rule(index, entry):
     LOGGER.debug("Parsing rule %d: %s", index, dict(entry))
-    
-    #TODO try-catch
-    label = entry["Label"]
+   
+    try:
+        if entry["label"].startswith(RULE_COMMENT_CHAR):
+            LOGGER.debug("Rule %d ignored, because it's commented out", index)
+            return None
 
-    condition = load_condition(entry, 1)
+        require_column(entry, "label", ["label", "LABEL", "apply", "APPLY"])
+        label = require_column(entry, "Label", "*")
+        require_column(entry, "if", ["if", "IF", "when", "WHEN"])
 
-    rule = Rule(index, label, condition)
-    LOGGER.debug("Parsed rule %d: %s", index, rule)
-    return rule
+        condition = load_condition(entry, 1)
+
+        rule = Rule(index, label, condition)
+        LOGGER.debug("Parsed rule %d: %s", index, rule)
+        return rule
+
+    except Exception as ex:
+        LOGGER.error("Rule %d ignored, because it cannot be parsed: %s", index, ex)
+        return None
 
 
 def load_condition(entry, condition_index):
-    column = entry[f"column-{condition_index}"]
-    operator = entry[f"operator-{condition_index}"]
-    value = entry[f"value-{condition_index}"]
-
+    column = require_column(entry, f"column-{condition_index}", "*") 
+    operator = require_column(entry, f"operator-{condition_index}", "*")
+    value = require_column(entry, f"value-{condition_index}", "*")
+    
     return Condition(column, operator, value)
+
+def require_column(entry, column_name, expected_value_or_values):
+    value = entry[column_name]
+
+    if expected_value_or_values == "*":
+        if pandas.isnull(value):
+            raise ValueError(f"The column '{column_name}' has to have some value, but has '{value}'")
+        else:
+            return value
+
+    if type(expected_value_or_values) == list:
+        if value not in expected_value_or_values:
+            raise ValueError(f"The column '{column_name}' has to have value one of {expected_value_or_values}, but has '{value}'")
+        else:
+            return value
+
+    raise ValueError(f"Unsupported expected_value_or_values: {expected_value_or_values}")
+
 
 ###############################################################################
 
@@ -83,6 +114,9 @@ def check_and_apply(rules, table, column_name, allow_override, rewrite_strategy)
 
         LOGGER.info("Creating the new column of name: %s", column_name)
         table.insert(position, column_name, NO_LABEL)
+    else:
+        LOGGER.info("The table already has column %s", column_name)
+
 
     apply(rules, table, column_name, allow_override, rewrite_strategy)
 
