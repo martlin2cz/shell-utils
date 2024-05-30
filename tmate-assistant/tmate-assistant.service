@@ -1,0 +1,10 @@
+[Unit]
+Description=tmate assistant
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/home/martin/apps/tmate-assistant-app/assist-tmate.sh check-and-start
+
+[Install]
+WantedBy=multi-user.target

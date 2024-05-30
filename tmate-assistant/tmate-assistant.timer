@@ -1,0 +1,11 @@
+[Unit]
+Description=tmate assistant timer
+
+[Timer]
+OnCalendar=Mon-Fri *-*-* 8..20:00:00
+OnCalendar=Sat,Sun *-*-* 8,12,16,20:00:00
+Persistent=true
+Unit=tmate-assistant.service
+
+[Install]
+WantedBy=multi-user.target
