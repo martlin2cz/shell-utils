@@ -1,0 +1,3 @@
+GitPython==3.1.43
+matplotlib==3.7.5
+drawilleplot==0.1.0
