@@ -8,8 +8,10 @@ TA_FAILED_DIR=$TA_HOME_DIR/failed
 TA_TERMINATED_DIR=$TA_HOME_DIR/terminated
 TA_TRASH_DIR=$TA_HOME_DIR/trash
 
+# don't fill if you don't want that stored somewhere on the cloud
 TMATE_USERNAME="[USERNAME]"
 TMATE_SERVER="lon1.tmate.io"
+TMASS_SESSION_NAME_ENV_VAR_NAME="tmate_assistant_session_name"
 
 VERBOSE=""
 
@@ -32,27 +34,63 @@ address-of-session() {
 	echo "$TMATE_USERNAME/$SESSION_NAME@$TMATE_SERVER"
 }
 
+socket-file-of-session() {
+	local SESSION_NAME=$1
+
+	echo /tmp/tmate-assistant-$SESSION_NAME.sock
+}
+
+current-session-name() {
+	local SESSION_NAME=$(tmate display -p '#{'$TMASS_SESSION_NAME_ENV_VAR_NAME'}')
+	
+	if [ "$SESSION_NAME" == "" ]; then
+		echo "[No current session]" >&2
+		exit 1
+	else
+		echo "[Current session name is $SESSION_NAME]" >&2
+		echo "$SESSION_NAME"
+	fi
+}
+
 start-tmate-session() {
 	local SESSION_NAME=$1
 	
-	local ADRESS=$(address-of-session $NAME)
-	log-message $SESSION_NAME "% Starting tmate session on the address $ADRESS" $TA_TOSTART_DIR
+	local ADRESS=$(address-of-session $SESSION_NAME)
+	log-message "$SESSION_NAME" "% Starting tmate session on the address $ADRESS"  $TA_TOSTART_DIR $TA_STARTED_DIR
 
-	TMP_WAIT_TIME=100
-	echo "(FAKE RUNNING $SESSION_NAME, WILL WAIT $TMP_WAIT_TIME sec then)" && sleep $TMP_WAIT_TIME
+	#TMP_WAIT_TIME=100
+	#echo "(FAKE RUNNING $SESSION_NAME, WILL WAIT $TMP_WAIT_TIME sec then)" && sleep $TMP_WAIT_TIME
 
 	#echo $NAME > /tmp/$NAME
 	#xed --new-window --wait /tmp/$NAME
 
-	#tmate -n $NAME
+	#tmate -n $SESSION_NAME
+
+	local SOCK_FILE=$(socket-file-of-session "$SESSION_NAME")
+	tmate -S $SOCK_FILE -n "$SESSION_NAME" new-session -d \
+		&& tmate -S $SOCK_FILE set-environment $TMASS_SESSION_NAME_ENV_VAR_NAME $SESSION_NAME \
+		&& tmate -S $SOCK_FILE wait tmate-ready 
+	
+#tmate -hook translate-to-directory $SESSION_NAME "! Terminated $SESSION_NAME session." $TA_STARTED_DIR $TA_TERMINATED_DIR
+	return $?
+}
+
+terminate-tmate-session() {
+	local SESSION_NAME=$1
+
+	log-message "$SESSION_NAME" "! Stopping tmate session $SESSION_NAME" $TA_TERMINATED_DIR
+	sleep 1
+
+	local SOCK_FILE=$(socket-file-of-session "$SESSION_NAME")	
+	tmate -S $SOCK_FILE kill-session
 }
 
 ###############################################################################
 ## SESSION NAME <-> SESSION (LOG) FILE
 
 do-append-another-file-to() {
-	SOURCE_FILE=$1
-	TARGET_FILE=$2
+	local SOURCE_FILE=$1
+	local TARGET_FILE=$2
 	# echo "[do-append-another-file-to: $SOURCE_FILE | $TARGET_FILE ]" >&2	
 
 	echo "[Found file $SOURCE_FILE, evil twin of $TARGET_FILE joining into that]" 1>&2
@@ -90,7 +128,7 @@ session-name-of-file() {
 	
 	# echo "[session-name-of-file: $FILE | $FILENAME | $SESSION_NAME ]"
 
-	echo $SESSION_NAME
+	echo "$SESSION_NAME"
 }
 
 ###############################################################################
@@ -99,12 +137,12 @@ log-message() {
 	local SESSION_NAME=$1
 	local MESSAGE=$2
 	local STATUS_DIRECTORY=$3
-	local FILE=$(file-of-session-name $SESSION_NAME $STATUS_DIRECTORY)
+	local FILE=$(file-of-session-name "$SESSION_NAME" $STATUS_DIRECTORY)
 	
-	#echo "[log-message: $SESSION_NAME | $MESSAGE | $STATUS_DIRECTORY | $FILE]" >&2
+	# echo "[log-message: $SESSION_NAME | $MESSAGE | $STATUS_DIRECTORY | $FILE]" >&2
 
 	date >> $FILE
-	echo $MESSAGE | tee -a $FILE
+	echo "$MESSAGE" | tee -a $FILE
 	echo >> $FILE
 }
 
@@ -117,7 +155,7 @@ translate-to-directory() {
 	# echo "[translate-to-directory: $SESSION_NAME | $MESSAGE | $CURRENT_DIR | $DESTIONATION_DIR]" >&2
 
 	# log the message
-	log-message $SESSION_NAME "$MESSAGE" $CURRENT_DIR 
+	log-message "$SESSION_NAME" "$MESSAGE" $CURRENT_DIR 
 
 	# compute the source and target file
 	SOURCE_FILE=$(file-of-session-name $SESSION_NAME $CURRENT_DIR)
@@ -128,7 +166,7 @@ translate-to-directory() {
 	mv $VERBOSE $SOURCE_FILE $MOVED_FILE
 	
 	# indicate the status of the logfile
-	log-message $SESSION_NAME "<Translated (moved) $SESSION_NAME from $CURRENT_DIR to $DESTINATION_DIR>" $DESTINATION_DIR 
+	log-message "$SESSION_NAME" "<Translated (moved) $SESSION_NAME from $CURRENT_DIR to $DESTINATION_DIR>" $DESTINATION_DIR 
 }
 
 ###############################################################################
@@ -155,10 +193,10 @@ list-session-names-in() {
 		SESSION_NAME=$(session-name-of-file $FILE)
 
 		if [ ${FILE##*.} != "txt" ] ; then
-			do-backup-non-txt-session-file $SESSION_NAME $FILE
+			do-backup-non-txt-session-file "$SESSION_NAME" $FILE
 		fi
 
-		echo $SESSION_NAME
+		echo "$SESSION_NAME"
 	done
 }
 
@@ -234,8 +272,8 @@ integration-tests() {
 }
 
 run-test() {
-	#unit-tests
-	#usual-use-case-test
+	unit-tests
+	usual-use-case-test
 
 	integration-tests
 }
@@ -252,8 +290,13 @@ check-and-start-session() {
 
 	log-message $SESSION_NAME "! Starting $SESSION_NAME session ..." $TA_TOSTART_DIR
 
-	( start-tmate-session $SESSION_NAME ; translate-to-directory $SESSION_NAME "! Terminated $SESSION_NAME session." $TA_STARTED_DIR $TA_TERMINATED_DIR ) &
-	translate-to-directory $SESSION_NAME "! Started $SESSION_NAME session." $TA_TOSTART_DIR $TA_STARTED_DIR
+	start-tmate-session $SESSION_NAME
+	STARTED=$?
+	if [ "$STARTED" -eq 0 ] ; then
+		translate-to-directory $SESSION_NAME "! Started $SESSION_NAME session." $TA_TOSTART_DIR $TA_STARTED_DIR
+	else
+		translate-to-directory $SESSION_NAME "! Failed start of $SESSION_NAME session." $TA_TOSTART_DIR $TA_FAILED_DIR 
+	fi
 }
 
 check-and-start-sessions() {
@@ -268,11 +311,22 @@ start-manually() {
 	local SESSION_NAME=$1
 
 	INITIAL_FILE=$TA_TOSTART_DIR/$SESSION_NAME.txt
-	echo "[Creating $INITIAL_FILE]"
+	echo "[Creating $INITIAL_FILE]" >&2
 	touch $INITIAL_FILE
 	log-message $SESSION_NAME "Manually created file $INITIAL_FILE for the session named $SESSION_NAME." $TA_TOSTART_DIR
 
 	check-and-start-session $SESSION_NAME
+}
+
+terminate-session() {
+	local SESSION_NAME=$1
+	
+	# we have to translate first, the process gets terminated by the session termination
+	translate-to-directory $SESSION_NAME "! Session $SESSION_NAME will be terminated." $TA_STARTED_DIR $TA_TERMINATED_DIR
+
+	terminate-tmate-session $SESSION_NAME
+
+	log-message $SESSION_NAME "! Session $SESSION_NAME terminated." $TA_TERMINATED_DIR
 }
 
 list-all() {
@@ -295,7 +349,7 @@ list-all() {
 }
 
 if [ "$1" == "-v" ] || [ "$1" == "--verbose" ] ; then
-	echo "[Verbose mode on]"
+	echo "[Verbose mode on]" >&2
 	VERBOSE="--verbose"
 	shift
 fi
@@ -311,10 +365,37 @@ case $1 in
 		fi
 		start-manually $2
 	;;
-	"status" | "print" | "list")
+	"die" | "kill" | "terminate")
+		SESSION_NAME=
+		if [ "$2" == "" ]; then
+			SESSION_NAME=$(current-session-name)
+			if [ "$SESSON_NAME" == "" ]; then
+				echo "No curent session." >&2
+				exit 3
+			fi
+		else
+			SESSION_NAME=$2
+		fi
+		terminate-session $SESSION_NAME
+	;;
+	"status")
+		echo "Current session: " $(current-session-name)
+		list-all
+	;;
+	"print" | "list")
 		list-all
 	;;
 	"test")
 		run-test
 	;;
+	*)
+		echo "$0 v1.1"
+		echo "Usage: $0 COMMAND [ARGS]"
+		echo "check|start|check-and-start		Checks for all sessions to-start and starts them"
+		echo "start-manually|start-now SESSION_NAME	Starts the specifcied session immediatelly"
+		echo "die|kill|terminate [SESSION_NAME]		Terminates the given or current session"
+		echo "status					Prints information about the current and other sessions"
+		echo "print|list				List all the sessions"
+	;;
+
 esac
